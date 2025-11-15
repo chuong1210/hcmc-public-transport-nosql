@@ -2,11 +2,14 @@ from flask import Blueprint, request, jsonify
 from app.utils.db_connection import db_connection
 from app.models.station import Station
 from datetime import datetime
+from flask_jwt_extended import jwt_required
 station_bp = Blueprint('stations', __name__, url_prefix='/api/stations')
 
 @station_bp.route('/', methods=['GET'])
 def get_all_stations():
     """Get all stations"""
+    print( "Hello from get_all_routes" )
+
     try:
         db = db_connection.get_db()
         

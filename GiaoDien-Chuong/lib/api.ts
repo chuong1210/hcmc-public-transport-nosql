@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
+import { deleteCookie, getCookie, setCookie } from './cookies';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -16,7 +17,11 @@ class ApiClient {
     // Request interceptor
     this.client.interceptors.request.use(
       (config) => {
-        const token = localStorage.getItem('access_token');
+        let token = localStorage.getItem('access_token');
+        if(token=== null)
+        {
+           token = getCookie('access_token');
+        }
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
@@ -30,7 +35,11 @@ class ApiClient {
       (response) => response,
       async (error: AxiosError) => {
         if (error.response?.status === 401) {
-          const refreshToken = localStorage.getItem('refresh_token');
+          let refreshToken = localStorage.getItem('refresh_token');
+          if(refreshToken === null)
+          {
+             refreshToken = getCookie('refresh_token');
+          }
           if (refreshToken) {
             try {
               const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {}, {
@@ -38,7 +47,7 @@ class ApiClient {
               });
               const { access_token } = response.data;
               localStorage.setItem('access_token', access_token);
-              
+              setCookie('access_token', access_token, 0.01, { secure: process.env.NODE_ENV === 'production' });
               if (error.config) {
                 error.config.headers.Authorization = `Bearer ${access_token}`;
                 return this.client.request(error.config);
@@ -46,6 +55,8 @@ class ApiClient {
             } catch (refreshError) {
               localStorage.removeItem('access_token');
               localStorage.removeItem('refresh_token');
+              deleteCookie('access_token', { secure: process.env.NODE_ENV === 'production' });
+              deleteCookie('refresh_token', { secure: process.env.NODE_ENV === 'production' });
               window.location.href = '/login';
             }
           }

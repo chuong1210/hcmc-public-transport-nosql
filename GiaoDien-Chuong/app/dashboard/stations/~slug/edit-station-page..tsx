@@ -2,19 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { StationForm } from "@/components/stations/station-form";
 import { api } from "@/lib/api";
+import { StationForm } from "@/components/stations/station-form";
 import { useToast } from "@/components/ui/use-toast";
-import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Station } from "@/types";
 
-export default function EditStationPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function EditStationPage({ id }: { id: string }) {
   const [station, setStation] = useState<Station | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -22,14 +18,12 @@ export default function EditStationPage({
 
   useEffect(() => {
     fetchStation();
-  }, [params.id]);
+  }, [id]);
 
   const fetchStation = async () => {
     try {
-      const response = await api.getStation(params.id);
-      if (response.success) {
-        setStation(response.data);
-      }
+      const response = await api.getStation(id);
+      if (response.success) setStation(response.data);
     } catch (error) {
       toast({
         title: "Lỗi",
@@ -44,7 +38,7 @@ export default function EditStationPage({
 
   const handleSubmit = async (data: any) => {
     try {
-      const response = await api.updateStation(params.id, data);
+      const response = await api.updateStation(id, data);
       if (response.success) {
         toast({
           title: "Thành công",
@@ -61,17 +55,8 @@ export default function EditStationPage({
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-12">
-        <div className="spinner" />
-      </div>
-    );
-  }
-
-  if (!station) {
-    return null;
-  }
+  if (loading) return <div className="py-12 text-center">Loading...</div>;
+  if (!station) return null;
 
   return (
     <div className="space-y-6">
@@ -81,8 +66,9 @@ export default function EditStationPage({
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
+
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Chỉnh sửa trạm</h2>
+          <h2 className="text-3xl font-bold">Chỉnh sửa trạm</h2>
           <p className="text-muted-foreground">
             Cập nhật thông tin trạm {station.name}
           </p>

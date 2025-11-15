@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { User as UserType } from "@/types";
+import { deleteCookie } from "@/lib/cookies";
 
 export function Header() {
   const [user, setUser] = useState<UserType | null>(null);
@@ -36,6 +37,13 @@ export function Header() {
   const handleLogout = () => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
+    // Xóa cookies
+    deleteCookie("access_token", {
+      secure: process.env.NODE_ENV === "production",
+    });
+    deleteCookie("refresh_token", {
+      secure: process.env.NODE_ENV === "production",
+    });
     window.location.href = "/login";
   };
 

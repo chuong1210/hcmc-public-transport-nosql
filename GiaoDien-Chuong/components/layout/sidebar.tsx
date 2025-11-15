@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { deleteCookie } from "@/lib/cookies";
 
 const menuItems = [
   {
@@ -56,6 +57,11 @@ const menuItems = [
     href: "/dashboard/query",
   },
   {
+    title: "Người dùng",
+    icon: Search,
+    href: "/dashboard/users",
+  },
+  {
     title: "Thống kê",
     icon: BarChart3,
     href: "/dashboard/analytics",
@@ -68,6 +74,12 @@ export function Sidebar() {
   const handleLogout = () => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
+    deleteCookie("access_token", {
+      secure: process.env.NODE_ENV === "production",
+    });
+    deleteCookie("refresh_token", {
+      secure: process.env.NODE_ENV === "production",
+    });
     window.location.href = "/login";
   };
 

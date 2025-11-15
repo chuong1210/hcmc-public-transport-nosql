@@ -16,7 +16,7 @@ import { Bus, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/use-toast";
 import Link from "next/link";
-
+import { setCookie } from "@/lib/cookies"; // Import helper
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -35,6 +35,13 @@ export default function LoginPage() {
         localStorage.setItem("access_token", response.data.access_token);
         localStorage.setItem("refresh_token", response.data.refresh_token);
 
+        setCookie("access_token", response.data.access_token, 0.01, {
+          secure: process.env.NODE_ENV === "production",
+        });
+        // Refresh token: dài hạn (7 ngày)
+        setCookie("refresh_token", response.data.refresh_token, 7, {
+          secure: process.env.NODE_ENV === "production",
+        });
         toast({
           title: "Đăng nhập thành công",
           description: `Chào mừng ${response.data.user.full_name}`,
@@ -55,7 +62,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 to-indigo-100 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
