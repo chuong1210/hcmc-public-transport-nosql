@@ -2,7 +2,7 @@
 export interface Address {
   street: string;
   ward: string;
-  district: string;
+  //district: string;
   city: string;
 }
 
@@ -232,4 +232,25 @@ export interface VehicleUtilization {
   utilization_rate: number;
   by_status: { status: string; count: number }[];
   by_type: { type: string; count: number }[];
+}
+
+
+export interface Province {
+  code: number;
+  name: string;
+  codename: string;
+  division_type: string;
+  phone_code: number;
+}
+
+export interface Ward {
+  code: number;
+  name: string;
+  codename: string;
+  division_type: string;
+  province_code: number; // Link trực tiếp đến province
+}
+
+export interface ProvinceDetail extends Province {
+  wards: Ward[];
 }

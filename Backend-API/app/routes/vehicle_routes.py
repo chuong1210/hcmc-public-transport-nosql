@@ -24,20 +24,27 @@ def require_permission(permission):
         return wrapper
     return decorator
 
+
 @vehicle_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_all_vehicles():
-    """Get all vehicles"""
+    """Get all vehicles with pagination"""
     try:
         db = db_connection.get_db()
         
+        # Pagination
+        page = int(request.args.get('page', 1))
+        limit = int(request.args.get('limit', 20))
+        offset = (page - 1) * limit
+        
+        # Filters
         status = request.args.get('status')
         type_ = request.args.get('type')
-        route_id = request.args.get('route_id')
         
+        # Build query
         aql = "FOR vehicle IN vehicles"
         filters = []
-        bind_vars = {}
+        bind_vars = {'offset': offset, 'limit': limit}
         
         if status:
             filters.append("vehicle.status == @status")
@@ -49,15 +56,29 @@ def get_all_vehicles():
         if filters:
             aql += " FILTER " + " AND ".join(filters)
         
-        aql += " SORT vehicle.vehicle_id RETURN vehicle"
+        # Count
+        count_aql = aql + " COLLECT WITH COUNT INTO total RETURN total"
+        count_result = db.AQLQuery(
+            count_aql,
+            bindVars={k: v for k, v in bind_vars.items() if k not in ['offset', 'limit']},
+            rawResults=True
+        )
+        total = list(count_result)[0] if list(count_result) else 0
         
+        # Get data
+        aql += " SORT vehicle.license_plate LIMIT @offset, @limit RETURN vehicle"
         result = db.AQLQuery(aql, bindVars=bind_vars, rawResults=True)
         vehicles = list(result)
         
         return jsonify({
             "success": True,
-            "count": len(vehicles),
-            "data": vehicles
+            "data": vehicles,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": total,
+                "pages": (total + limit - 1) // limit
+            }
         }), 200
         
     except Exception as e:
@@ -65,6 +86,7 @@ def get_all_vehicles():
             "success": False,
             "error": str(e)
         }), 500
+
 
 @vehicle_bp.route('/<vehicle_id>', methods=['GET'])
 @jwt_required()

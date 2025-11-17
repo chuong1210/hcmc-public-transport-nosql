@@ -26,6 +26,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { StationMap } from "@/components/stations/station-map";
+import { Pagination } from "@/components/ui/pagination";
 
 export default function StationsPage() {
   const [stations, setStations] = useState<Station[]>([]);
@@ -35,22 +37,39 @@ export default function StationsPage() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [stationToDelete, setStationToDelete] = useState<string | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const itemsPerPage = 12;
+
   const { toast } = useToast();
 
   useEffect(() => {
     fetchStations();
-  }, [statusFilter, typeFilter]);
+  }, [statusFilter, typeFilter, currentPage]);
 
   const fetchStations = async () => {
     try {
       setLoading(true);
-      const params: any = {};
+      const params: any = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
+
       if (statusFilter !== "all") params.status = statusFilter;
       if (typeFilter !== "all") params.type = typeFilter;
 
       const response = await api.getStations(params);
       if (response.success) {
         setStations(response.data);
+
+        // Handle pagination from response
+        if (response.pagination) {
+          setTotalPages(response.pagination.pages);
+          setTotalItems(response.pagination.total);
+        }
       }
     } catch (error) {
       toast({
@@ -92,11 +111,18 @@ export default function StationsPage() {
     setDeleteDialogOpen(true);
   };
 
+  // SỬA LỖI: Không còn district
   const filteredStations = stations.filter(
     (station) =>
       station.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      station.address.district.toLowerCase().includes(searchTerm.toLowerCase())
+      station.address.ward.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      station.address.street.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
     <div className="space-y-6">
@@ -105,7 +131,7 @@ export default function StationsPage() {
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Quản lý Trạm</h2>
           <p className="text-muted-foreground">
-            Quản lý các trạm xe buýt trên toàn TP.HCM
+            Quản lý các trạm xe buýt trên toàn TP.HCM ({totalItems} trạm)
           </p>
         </div>
         <Link href="/dashboard/stations/new">
@@ -121,7 +147,7 @@ export default function StationsPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Tìm kiếm trạm..."
+            placeholder="Tìm kiếm theo tên, phường, đường..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -154,6 +180,9 @@ export default function StationsPage() {
         </Select>
       </div>
 
+      {/* Map View */}
+      <StationMap stations={stations} />
+
       {/* Stations Grid */}
       {loading ? (
         <div className="flex justify-center py-12">
@@ -164,15 +193,26 @@ export default function StationsPage() {
           <p className="text-muted-foreground">Không tìm thấy trạm nào</p>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredStations.map((station) => (
-            <StationCard
-              key={station.station_id}
-              station={station}
-              onDelete={openDeleteDialog}
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filteredStations.map((station) => (
+              <StationCard
+                key={station.station_id}
+                station={station}
+                onDelete={openDeleteDialog}
+              />
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
             />
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       {/* Delete Confirmation Dialog */}

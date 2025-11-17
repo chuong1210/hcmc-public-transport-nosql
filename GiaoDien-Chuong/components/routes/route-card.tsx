@@ -9,6 +9,7 @@ import {
   Trash2,
   Clock,
   DollarSign,
+  Eye,
 } from "lucide-react";
 import type { BusRoute } from "@/types";
 import {
@@ -71,6 +72,12 @@ export function RouteCard({ route, onDelete }: RouteCardProps) {
       </CardContent>
 
       <CardFooter className="flex gap-2 justify-end">
+        <Link href={`/dashboard/routes/${route.route_id}/view`}>
+          <Button variant="ghost" size="sm">
+            <Eye className="h-4 w-4 mr-2" />
+            Xem
+          </Button>
+        </Link>
         <Link href={`/dashboard/routes/${route.route_id}`}>
           <Button variant="outline" size="sm">
             <Edit className="h-4 w-4 mr-2" />

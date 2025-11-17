@@ -25,7 +25,16 @@ import {
 } from "recharts";
 import { api } from "@/lib/api";
 import type { BusiestStation, VehicleUtilization } from "@/types";
-import { Loader2 } from "lucide-react";
+import {
+  Loader2,
+  TrendingUp,
+  TrendingDown,
+  Users,
+  Bus,
+  MapPin,
+  Route as RouteIcon,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 const COLORS = [
   "#0088FE",
@@ -38,11 +47,12 @@ const COLORS = [
 
 export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
+  const [overview, setOverview] = useState<any>(null);
   const [busiestStations, setBusiestStations] = useState<BusiestStation[]>([]);
   const [vehicleUtilization, setVehicleUtilization] =
     useState<VehicleUtilization | null>(null);
   const [routeCoverage, setRouteCoverage] = useState<any[]>([]);
-  const [stationsByDistrict, setStationsByDistrict] = useState<any[]>([]);
+  const [wardDistribution, setWardDistribution] = useState<any[]>([]);
 
   useEffect(() => {
     fetchAnalytics();
@@ -52,29 +62,20 @@ export default function AnalyticsPage() {
     try {
       setLoading(true);
 
-      const [busiestRes, utilizationRes, coverageRes, districtRes] =
+      const [overviewRes, busiestRes, utilizationRes, coverageRes, wardRes] =
         await Promise.all([
+          api.getAnalyticsOverview(),
           api.getBusiestStations(10),
           api.getVehiclesUtilization(),
           api.getRouteCoverage(),
-          api.getStationsByDistrict(),
+          api.getStationsByWard(),
         ]);
 
-      if (busiestRes.success) {
-        setBusiestStations(busiestRes.data);
-      }
-
-      if (utilizationRes.success) {
-        setVehicleUtilization(utilizationRes.data);
-      }
-
-      if (coverageRes.success) {
-        setRouteCoverage(coverageRes.data);
-      }
-
-      if (districtRes.success) {
-        setStationsByDistrict(districtRes.data);
-      }
+      if (overviewRes.success) setOverview(overviewRes.data);
+      if (busiestRes.success) setBusiestStations(busiestRes.data);
+      if (utilizationRes.success) setVehicleUtilization(utilizationRes.data);
+      if (coverageRes.success) setRouteCoverage(coverageRes.data);
+      if (wardRes.success) setWardDistribution(wardRes.data);
     } catch (error) {
       console.error("Failed to fetch analytics:", error);
     } finally {
@@ -98,19 +99,12 @@ export default function AnalyticsPage() {
     { hour: "7-8h", usage: 85 },
     { hour: "8-9h", usage: 70 },
     { hour: "9-10h", usage: 40 },
-    { hour: "10-11h", usage: 30 },
     { hour: "11-12h", usage: 35 },
     { hour: "12-13h", usage: 40 },
-    { hour: "13-14h", usage: 35 },
-    { hour: "14-15h", usage: 30 },
-    { hour: "15-16h", usage: 40 },
     { hour: "16-17h", usage: 60 },
     { hour: "17-18h", usage: 90 },
     { hour: "18-19h", usage: 75 },
     { hour: "19-20h", usage: 50 },
-    { hour: "20-21h", usage: 30 },
-    { hour: "21-22h", usage: 20 },
-    { hour: "22-23h", usage: 10 },
   ];
 
   if (loading) {
@@ -131,6 +125,73 @@ export default function AnalyticsPage() {
           Báo cáo và phân tích hoạt động hệ thống
         </p>
       </div>
+
+      {/* Overview Cards */}
+      {overview && (
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Tổng số trạm
+              </CardTitle>
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {overview.total_stations}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {overview.active_stations} đang hoạt động
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Tổng số tuyến
+              </CardTitle>
+              <RouteIcon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{overview.total_routes}</div>
+              <p className="text-xs text-muted-foreground">
+                {overview.active_routes} đang hoạt động
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Tổng số xe</CardTitle>
+              <Bus className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {overview.total_vehicles}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {overview.active_vehicles} đang hoạt động
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Tỷ lệ sử dụng
+              </CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {vehicleUtilization?.utilization_rate.toFixed(1)}%
+              </div>
+              <p className="text-xs text-muted-foreground">Xe được phân công</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList className="grid w-full grid-cols-5">
@@ -176,18 +237,18 @@ export default function AnalyticsPage() {
               </CardContent>
             </Card>
 
-            {/* Stations by District */}
-            {stationsByDistrict.length > 0 && (
+            {/* Ward Distribution */}
+            {wardDistribution.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Phân bố trạm theo quận</CardTitle>
+                  <CardTitle>Phân bố trạm theo phường/xã</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={stationsByDistrict.slice(0, 10)}>
+                    <BarChart data={wardDistribution.slice(0, 10)}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis
-                        dataKey="district"
+                        dataKey="ward"
                         angle={-45}
                         textAnchor="end"
                         height={100}
@@ -234,6 +295,33 @@ export default function AnalyticsPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Stations List with Details */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Chi tiết các trạm bận rộn</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {busiestStations.slice(0, 5).map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-4 border rounded-lg"
+                  >
+                    <div>
+                      <p className="font-medium">{item.station.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {item.station.address.ward}, {item.station.address.city}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <Badge variant="outline">{item.route_count} tuyến</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="routes" className="space-y-4">
@@ -249,7 +337,7 @@ export default function AnalyticsPage() {
                     <BarChart
                       data={routeCoverage.slice(0, 10).map((r) => ({
                         name: `Tuyến ${r.route.route_code}`,
-                        districts: r.districts_covered,
+                        wards: r.wards_covered,
                         stops: r.total_stops,
                       }))}
                     >
@@ -258,7 +346,7 @@ export default function AnalyticsPage() {
                       <YAxis />
                       <Tooltip />
                       <Legend />
-                      <Bar dataKey="districts" fill="#3b82f6" name="Số quận" />
+                      <Bar dataKey="wards" fill="#3b82f6" name="Số phường" />
                       <Bar dataKey="stops" fill="#10b981" name="Số trạm" />
                     </BarChart>
                   </ResponsiveContainer>
@@ -278,22 +366,13 @@ export default function AnalyticsPage() {
                             Tuyến {route.route.route_code}
                           </span>
                           <span className="text-sm text-muted-foreground">
-                            {route.districts_covered} quận, {route.total_stops}{" "}
+                            {route.wards_covered} phường, {route.total_stops}{" "}
                             trạm
                           </span>
                         </div>
-                        <div className="flex flex-wrap gap-1">
-                          {route.districts.map(
-                            (district: string, i: number) => (
-                              <span
-                                key={i}
-                                className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded"
-                              >
-                                {district}
-                              </span>
-                            )
-                          )}
-                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {route.route.route_name}
+                        </p>
                       </div>
                     ))}
                   </div>

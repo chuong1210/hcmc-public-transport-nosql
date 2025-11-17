@@ -3,7 +3,7 @@
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Edit, Trash2, Wifi, Accessibility } from "lucide-react";
+import { MapPin, Edit, Trash2, Wifi, Accessibility, Eye } from "lucide-react";
 import type { Station } from "@/types";
 import { getStatusColor, getTypeColor } from "@/lib/utils";
 import Link from "next/link";
@@ -24,9 +24,9 @@ export function StationCard({ station, onDelete }: StationCardProps) {
               <h3 className="text-lg font-semibold">{station.name}</h3>
             </div>
 
-            <p className="text-sm text-muted-foreground mb-3">
+            <p className="text-sm text-muted-foreground">
               {station.address.street}, {station.address.ward},{" "}
-              {station.address.district}
+              {station.address.city}
             </p>
 
             <div className="flex flex-wrap gap-2 mb-3">
@@ -52,6 +52,12 @@ export function StationCard({ station, onDelete }: StationCardProps) {
       </CardContent>
 
       <CardFooter className="flex gap-2 justify-end">
+        <Link href={`/dashboard/station/${station.station_id}/view`}>
+          <Button variant="ghost" size="sm">
+            <Eye className="h-4 w-4 mr-2" />
+            Xem
+          </Button>
+        </Link>
         <Link href={`/dashboard/stations/${station.station_id}`}>
           <Button variant="outline" size="sm">
             <Edit className="h-4 w-4 mr-2" />

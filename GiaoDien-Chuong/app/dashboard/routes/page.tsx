@@ -26,6 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Pagination } from "@/components/ui/pagination";
 
 export default function RoutesPage() {
   const [routes, setRoutes] = useState<BusRoute[]>([]);
@@ -35,22 +36,38 @@ export default function RoutesPage() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [routeToDelete, setRouteToDelete] = useState<string | null>(null);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const itemsPerPage = 12;
+
   const { toast } = useToast();
 
   useEffect(() => {
     fetchRoutes();
-  }, [statusFilter, typeFilter]);
+  }, [statusFilter, typeFilter, currentPage]);
 
   const fetchRoutes = async () => {
     try {
       setLoading(true);
-      const params: any = {};
+      const params: any = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
+
       if (statusFilter !== "all") params.status = statusFilter;
       if (typeFilter !== "all") params.type = typeFilter;
 
       const response = await api.getRoutes(params);
       if (response.success) {
         setRoutes(response.data);
+
+        if (response.pagination) {
+          setTotalPages(response.pagination.pages);
+          setTotalItems(response.pagination.total);
+        }
       }
     } catch (error) {
       toast({
@@ -94,9 +111,14 @@ export default function RoutesPage() {
 
   const filteredRoutes = routes.filter(
     (route) =>
-      route.route_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      route.route_code.toLowerCase().includes(searchTerm.toLowerCase())
+      route.route_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      route.route_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
     <div className="space-y-6">
@@ -104,7 +126,9 @@ export default function RoutesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Quản lý Tuyến</h2>
-          <p className="text-muted-foreground">Quản lý các tuyến xe buýt</p>
+          <p className="text-muted-foreground">
+            Quản lý các tuyến xe buýt ({totalItems} tuyến)
+          </p>
         </div>
         <Link href="/dashboard/routes/new">
           <Button>
@@ -119,7 +143,7 @@ export default function RoutesPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Tìm kiếm tuyến..."
+            placeholder="Tìm kiếm theo mã tuyến, tên..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -161,15 +185,26 @@ export default function RoutesPage() {
           <p className="text-muted-foreground">Không tìm thấy tuyến nào</p>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredRoutes.map((route) => (
-            <RouteCard
-              key={route.route_id}
-              route={route}
-              onDelete={openDeleteDialog}
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filteredRoutes.map((route) => (
+              <RouteCard
+                key={route.route_id}
+                route={route}
+                onDelete={openDeleteDialog}
+              />
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
             />
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       {/* Delete Confirmation Dialog */}

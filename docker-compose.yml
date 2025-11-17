@@ -15,6 +15,16 @@ services:
     networks:
       - bus-network
 
+  redis-be:
+    image: redis:7-alpine
+    container_name: bus_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
   # Optional: Backend service
   # backend:
   #   build: ./backend
@@ -37,6 +47,8 @@ services:
 volumes:
   arangodb_data:
   arangodb_apps:
+  redis_data:
+
 
 
 networks:

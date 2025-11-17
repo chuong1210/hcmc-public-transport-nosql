@@ -55,9 +55,12 @@ def create_app(config_name='development'):
     from app.routes.schedule_routes import schedule_bp
     from app.routes.journey_routes import journey_bp
     from app.routes.analytics_routes import analytics_bp
-    
+    from app.routes.query_routes import query_bp
     from app.routes.station_routes import station_bp
+    from app.routes.redis_routes import redis_bp
 
+    # Register blueprints
+    app.register_blueprint(redis_bp)
     app.register_blueprint(route_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(user_bp)
@@ -67,6 +70,8 @@ def create_app(config_name='development'):
     app.register_blueprint(schedule_bp)
     app.register_blueprint(journey_bp)
     app.register_blueprint(analytics_bp)
+    app.register_blueprint(query_bp)
+
     
     # Root endpoint
     @app.route('/')

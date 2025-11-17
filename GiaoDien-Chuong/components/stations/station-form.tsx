@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -24,13 +23,16 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Station } from "@/types";
+import { useEffect, useState } from "react";
+import { useAddressData } from "@/hooks/use-address-data";
+import { Loader2 } from "lucide-react";
 
 const formSchema = z.object({
   station_id: z.string().min(1, "Mã trạm là bắt buộc"),
   name: z.string().min(3, "Tên trạm phải có ít nhất 3 ký tự"),
   street: z.string().min(1, "Địa chỉ là bắt buộc"),
-  ward: z.string().min(1, "Phường/Xã là bắt buộc"),
-  district: z.string().min(1, "Quận/Huyện là bắt buộc"),
+  ward_code: z.string().min(1, "Phường/Xã là bắt buộc"),
+  province_code: z.string().min(1, "Tỉnh/Thành phố là bắt buộc"),
   latitude: z.number().min(-90).max(90, "Latitude không hợp lệ"),
   longitude: z.number().min(-180).max(180, "Longitude không hợp lệ"),
   type: z.enum(["terminal", "intermediate", "stop"]),
@@ -54,6 +56,11 @@ export function StationForm({
   onSubmit,
   isLoading,
 }: StationFormProps) {
+  const { provinces, wards, loading, loadProvinces, loadWards, loadHCMC } =
+    useAddressData();
+
+  const [selectedProvince, setSelectedProvince] = useState<string>("79"); // Default: TP.HCM
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: initialData
@@ -61,8 +68,8 @@ export function StationForm({
           station_id: initialData.station_id,
           name: initialData.name,
           street: initialData.address.street,
-          ward: initialData.address.ward,
-          district: initialData.address.district,
+          ward_code: "",
+          province_code: "79",
           latitude: initialData.location.latitude,
           longitude: initialData.location.longitude,
           type: initialData.type,
@@ -78,8 +85,8 @@ export function StationForm({
           station_id: "",
           name: "",
           street: "",
-          ward: "",
-          district: "",
+          ward_code: "",
+          province_code: "79",
           latitude: 10.7769,
           longitude: 106.7009,
           type: "intermediate",
@@ -93,15 +100,31 @@ export function StationForm({
         },
   });
 
+  useEffect(() => {
+    loadProvinces();
+    loadHCMC(); // Load TP.HCM wards by default
+  }, []);
+
+  const handleProvinceChange = async (provinceCode: string) => {
+    setSelectedProvince(provinceCode);
+    form.setValue("ward_code", "");
+    await loadWards(parseInt(provinceCode));
+  };
+
   const handleSubmit = async (values: z.infer<typeof formSchema>) => {
+    // Find names from codes
+    const province = provinces.find(
+      (p) => p.code === parseInt(values.province_code)
+    );
+    const ward = wards.find((w) => w.code === parseInt(values.ward_code));
+
     const data = {
       station_id: values.station_id,
       name: values.name,
       address: {
         street: values.street,
-        ward: values.ward,
-        district: values.district,
-        city: "TP.HCM",
+        ward: ward?.name || "",
+        city: province?.name || "TP.HCM",
       },
       location: {
         latitude: values.latitude,
@@ -170,25 +193,51 @@ export function StationForm({
               name="street"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Địa chỉ *</FormLabel>
+                  <FormLabel>Số nhà, đường *</FormLabel>
                   <FormControl>
-                    <Input placeholder="Quốc lộ 13" {...field} />
+                    <Input placeholder="123 Đường ABC" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
+            {/* CHỈ CÒN 2 DROPDOWN: TỈNH/TP VÀ PHƯỜNG/XÃ */}
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="ward"
+                name="province_code"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phường/Xã *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Phường 14" {...field} />
-                    </FormControl>
+                    <FormLabel>Tỉnh/Thành phố *</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        handleProvinceChange(value);
+                      }}
+                      disabled={loading}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          {loading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <SelectValue placeholder="Chọn tỉnh/thành phố" />
+                          )}
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {provinces.map((province) => (
+                          <SelectItem
+                            key={province.code}
+                            value={province.code.toString()}
+                          >
+                            {province.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -196,18 +245,47 @@ export function StationForm({
 
               <FormField
                 control={form.control}
-                name="district"
+                name="ward_code"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Quận/Huyện *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Quận Bình Thạnh" {...field} />
-                    </FormControl>
+                    <FormLabel>Phường/Xã *</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={loading || wards.length === 0}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          {loading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <SelectValue placeholder="Chọn phường/xã" />
+                          )}
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent className="max-h-[300px]">
+                        {wards.map((ward) => (
+                          <SelectItem
+                            key={ward.code}
+                            value={ward.code.toString()}
+                          >
+                            {ward.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
+
+            {wards.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                * Sau sát nhập tháng 9/2025, các phường/xã thuộc trực tiếp
+                tỉnh/thành phố
+              </p>
+            )}
           </CardContent>
         </Card>
 

@@ -19,12 +19,14 @@ import {
   MapPin,
   Bus,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { formatCurrency, formatDistance, formatDuration } from "@/lib/utils";
 import { api } from "@/lib/api";
 import type { Station, JourneyPath } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function JourneyPage() {
   const [stations, setStations] = useState<Station[]>([]);
@@ -33,6 +35,7 @@ export default function JourneyPage() {
   const [journeys, setJourneys] = useState<JourneyPath[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingStations, setLoadingStations] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchStations();
@@ -53,28 +56,37 @@ export default function JourneyPage() {
 
   const handleSearch = async () => {
     if (!fromStation || !toStation) {
+      setError("Vui lòng chọn điểm đi và điểm đến");
       return;
     }
 
     if (fromStation === toStation) {
-      alert("Điểm đi và điểm đến không thể giống nhau");
+      setError("Điểm đi và điểm đến không thể giống nhau");
       return;
     }
 
     setLoading(true);
+    setError(null);
+
     try {
+      // GỌI API THẬT
       const response = await api.findShortestPath({
         from_station_id: fromStation,
         to_station_id: toStation,
       });
 
-      if (response.success && response.data) {
+      if (response.success && response.data && response.data.length > 0) {
         setJourneys(response.data);
       } else {
         setJourneys([]);
+        setError("Không tìm thấy lộ trình giữa hai trạm này");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to find journey:", error);
+      const errorMessage =
+        error.response?.data?.error ||
+        "Không thể tìm lộ trình. Vui lòng thử lại.";
+      setError(errorMessage);
       setJourneys([]);
     } finally {
       setLoading(false);
@@ -89,7 +101,7 @@ export default function JourneyPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Lộ trình</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Tìm lộ trình</h2>
         <p className="text-muted-foreground">
           Tìm đường đi tối ưu giữa các trạm xe buýt
         </p>
@@ -147,6 +159,13 @@ export default function JourneyPage() {
                 </div>
               </div>
 
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
               <Button
                 onClick={handleSearch}
                 className="w-full"
@@ -185,7 +204,14 @@ export default function JourneyPage() {
             <Card key={idx} className="card-hover">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Lộ trình #{idx + 1}</CardTitle>
+                  <CardTitle className="text-lg">
+                    Lộ trình #{idx + 1}
+                    {idx === 0 && (
+                      <Badge className="ml-2 bg-green-100 text-green-700">
+                        Nhanh nhất
+                      </Badge>
+                    )}
+                  </CardTitle>
                   <Badge variant="outline" className="text-sm">
                     {journey.stops} điểm dừng
                   </Badge>
@@ -260,8 +286,7 @@ export default function JourneyPage() {
                             <div>
                               <p className="font-medium">{vertex.name}</p>
                               <p className="text-sm text-muted-foreground">
-                                {vertex.address.street},{" "}
-                                {vertex.address.district}
+                                {vertex.address.street}, {vertex.address.ward}
                               </p>
                             </div>
                             {vIdx === 0 && (
@@ -277,35 +302,23 @@ export default function JourneyPage() {
                           </div>
 
                           {/* Route information between stops */}
-                          {vIdx < journey.edges.length &&
-                            journey.routes &&
-                            journey.routes[vIdx] && (
-                              <div className="mt-3 p-3 bg-primary/5 rounded-md border border-primary/20">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Bus className="h-4 w-4 text-primary" />
-                                  <span className="font-medium text-sm">
-                                    Tuyến{" "}
-                                    {journey.routes[vIdx].route.route_code}:{" "}
-                                    {journey.routes[vIdx].route.route_name}
-                                  </span>
-                                </div>
-                                <div className="flex gap-4 text-xs text-muted-foreground">
-                                  <span>
-                                    Khoảng cách:{" "}
-                                    {formatDistance(
-                                      journey.edges[vIdx].distance
-                                    )}
-                                  </span>
-                                  <span>•</span>
-                                  <span>
-                                    Thời gian:{" "}
-                                    {formatDuration(
-                                      journey.edges[vIdx].duration
-                                    )}
-                                  </span>
-                                </div>
+                          {vIdx < journey.edges.length && (
+                            <div className="mt-3 p-3 bg-primary/5 rounded-md border border-primary/20">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Bus className="h-4 w-4 text-primary" />
+                                <span className="font-medium text-sm">
+                                  Khoảng cách:{" "}
+                                  {formatDistance(journey.edges[vIdx].distance)}
+                                </span>
                               </div>
-                            )}
+                              <div className="flex gap-4 text-xs text-muted-foreground">
+                                <span>
+                                  Thời gian:{" "}
+                                  {formatDuration(journey.edges[vIdx].duration)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -321,24 +334,18 @@ export default function JourneyPage() {
                         Tuyến xe cần đi:
                       </h4>
                       <div className="flex flex-wrap gap-2">
-                        {[
-                          ...new Set(
-                            journey.routes.map((r) => r.route.route_code)
-                          ),
-                        ].map((code, i) => {
-                          const route = journey.routes?.find(
-                            (r) => r.route.route_code === code
-                          )?.route;
-                          return route ? (
+                        {journey.routes.map((routeInfo: any, i: number) =>
+                          routeInfo && routeInfo.route ? (
                             <Badge
                               key={i}
                               variant="outline"
                               className="px-3 py-1"
                             >
-                              Tuyến {route.route_code}
+                              Tuyến {routeInfo.route.route_code}:{" "}
+                              {routeInfo.route.route_name}
                             </Badge>
-                          ) : null;
-                        })}
+                          ) : null
+                        )}
                       </div>
                     </div>
                   </>
@@ -350,19 +357,23 @@ export default function JourneyPage() {
       )}
 
       {/* No results */}
-      {!loading && journeys.length === 0 && fromStation && toStation && (
-        <Card>
-          <CardContent className="py-12">
-            <div className="text-center space-y-2">
-              <Navigation className="h-12 w-12 mx-auto text-muted-foreground" />
-              <h3 className="font-semibold">Không tìm thấy lộ trình</h3>
-              <p className="text-sm text-muted-foreground">
-                Không có tuyến xe buýt nào kết nối giữa hai trạm này
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {!loading &&
+        journeys.length === 0 &&
+        fromStation &&
+        toStation &&
+        !error && (
+          <Card>
+            <CardContent className="py-12">
+              <div className="text-center space-y-2">
+                <Navigation className="h-12 w-12 mx-auto text-muted-foreground" />
+                <h3 className="font-semibold">Không tìm thấy lộ trình</h3>
+                <p className="text-sm text-muted-foreground">
+                  Không có tuyến xe buýt nào kết nối giữa hai trạm này
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
     </div>
   );
 }

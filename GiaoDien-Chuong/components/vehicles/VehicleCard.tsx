@@ -3,7 +3,7 @@
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Bus, Edit, Trash2, Wrench, Calendar } from "lucide-react";
+import { Bus, Edit, Trash2, Wrench, Calendar, Eye } from "lucide-react";
 import type { Vehicle } from "@/types";
 import { getStatusColor } from "@/lib/utils";
 import Link from "next/link";
@@ -107,6 +107,12 @@ export function VehicleCard({ vehicle, onDelete }: VehicleCardProps) {
       </CardContent>
 
       <CardFooter className="flex gap-2 justify-end">
+        <Link href={`/dashboard/vehicles/${vehicle.vehicle_id}/view`}>
+          <Button variant="ghost" size="sm">
+            <Eye className="h-4 w-4 mr-2" />
+            Xem
+          </Button>
+        </Link>
         <Link href={`/dashboard/vehicles/${vehicle.vehicle_id}`}>
           <Button variant="outline" size="sm">
             <Edit className="h-4 w-4 mr-2" />

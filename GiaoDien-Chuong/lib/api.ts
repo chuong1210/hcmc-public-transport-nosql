@@ -182,6 +182,7 @@ class ApiClient {
   }
 
   // Analytics
+  
   async getAnalyticsOverview() {
     const response = await this.client.get('/analytics/overview');
     return response.data;
@@ -192,8 +193,8 @@ class ApiClient {
     return response.data;
   }
 
-  async getStationsByDistrict() {
-    const response = await this.client.get('/analytics/stations-by-district');
+  async getStationsByWard() {
+    const response = await this.client.get('/analytics/stations-by-ward');
     return response.data;
   }
 
@@ -255,11 +256,32 @@ class ApiClient {
     const response = await this.client.put(`/users/${username}`, data);
     return response.data;
   }
+  
 
   async deleteUser(username: string) {
     const response = await this.client.delete(`/users/${username}`);
     return response.data;
   }
+
+
+ async addStopToRoute(routeId: string, data: any)  {
+  const response = await this.client.post(`/routes/${routeId}/stops`, data);
+  return response.data;
 }
+
+ async removeStopFromRoute (routeId: string, stationId: string)  {
+  const response = await this.client.delete(`/routes/${routeId}/stops/${stationId}`);
+  return response.data;
+}
+
+ async updateRouteStops (routeId: string, data: any)  {
+  const response = await this.client.put(`/routes/${routeId}/stops`, data);
+  return response.data;
+}
+
+
+}
+
+
 
 export const api = new ApiClient();

@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from app.utils.db_connection import db_connection
 from flask_jwt_extended import jwt_required
+from app.utils.redis_connection import cache_response, get_cached_query_result, cache_query_result
 
 journey_bp = Blueprint('journey', __name__, url_prefix='/api/journey')
 
@@ -19,6 +20,14 @@ def find_shortest_path():
                 "error": "from_station_id and to_station_id are required"
             }), 400
         
+        cache_key = f"shortest_path:{from_station}:{to_station}"
+        cached_result = get_cached_query_result(cache_key)
+        
+        if cached_result:
+            return jsonify({
+                **cached_result,
+                "cached": True
+            }), 200
         db = db_connection.get_db()
         
         # Find shortest path using graph traversal
@@ -95,17 +104,17 @@ def find_shortest_path():
                 
                 route_info.append(routes[0] if routes else None)
             
-            enriched_paths.append({
-                **path,
-                'routes': route_info
-            })
-        
-        return jsonify({
+        response_data = {
             "success": True,
             "count": len(enriched_paths),
-            "data": enriched_paths
-        }), 200
+            "data": enriched_paths,
+            "cached": False
+        }
         
+        # Cache the result for 10 minutes
+        cache_query_result(cache_key, response_data, ttl=600)
+        
+        return jsonify(response_data), 200
     except Exception as e:
         return jsonify({
             "success": False,
