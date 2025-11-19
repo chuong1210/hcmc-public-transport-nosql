@@ -35,7 +35,7 @@ export default function LoginPage() {
         localStorage.setItem("access_token", response.data.access_token);
         localStorage.setItem("refresh_token", response.data.refresh_token);
 
-        setCookie("access_token", response.data.access_token, 0.01, {
+        setCookie("access_token", response.data.access_token, 6, {
           secure: process.env.NODE_ENV === "production",
         });
         // Refresh token: dài hạn (7 ngày)

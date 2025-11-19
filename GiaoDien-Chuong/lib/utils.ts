@@ -13,6 +13,9 @@ export function formatCurrency(amount: number): string {
 }
 
 export function formatDistance(distance: number): string {
+    if (typeof distance !== "number" || isNaN(distance)) {
+    return "0.00 km";
+  }
   return `${distance.toFixed(2)} km`;
 }
 
@@ -25,24 +28,34 @@ export function formatDuration(minutes: number): string {
   }
   return `${mins}m`;
 }
-
 export function getStatusColor(status: string): string {
-  const colors: Record<string, string> = {
-    active: 'bg-green-100 text-green-800',
-    inactive: 'bg-red-100 text-red-800',
-    maintenance: 'bg-yellow-100 text-yellow-800',
-  };
-  return colors[status] || 'bg-gray-100 text-gray-800';
+  switch (status) {
+    case 'active':
+      return 'bg-blue-100 text-blue-800 border-blue-300';
+    case 'maintenance':
+      return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+    case 'inactive':
+      return 'bg-gray-100 text-gray-800 border-gray-300';
+    default:
+      return 'bg-gray-100 text-gray-800 border-gray-300';
+  }
 }
 
 export function getTypeColor(type: string): string {
-  const colors: Record<string, string> = {
-    terminal: 'bg-blue-100 text-blue-800',
-    intermediate: 'bg-purple-100 text-purple-800',
-    stop: 'bg-gray-100 text-gray-800',
-    express: 'bg-red-100 text-red-800',
-    rapid: 'bg-orange-100 text-orange-800',
-    normal: 'bg-green-100 text-green-800',
-  };
-  return colors[type] || 'bg-gray-100 text-gray-800';
+  switch (type) {
+    case 'terminal':
+      return 'bg-blue-100 text-blue-800 border-blue-300';
+    case 'intermediate':
+      return 'bg-cyan-100 text-cyan-800 border-cyan-300';
+    case 'stop':
+      return 'bg-sky-100 text-sky-800 border-sky-300';
+    case 'normal':
+      return 'bg-blue-100 text-blue-800 border-blue-300';
+    case 'express':
+      return 'bg-indigo-100 text-indigo-800 border-indigo-300';
+    case 'rapid':
+      return 'bg-purple-100 text-purple-800 border-purple-300';
+    default:
+      return 'bg-gray-100 text-gray-800 border-gray-300';
+  }
 }

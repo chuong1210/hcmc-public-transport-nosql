@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { VehicleForm } from "@/components/vehicles/VehicleForm";
 import { api } from "@/lib/api";
@@ -9,12 +9,12 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { Vehicle } from "@/types";
-
-export default function EditVehiclePage({
+export default function VehicleEditPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = use(params);
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -22,11 +22,11 @@ export default function EditVehiclePage({
 
   useEffect(() => {
     fetchVehicle();
-  }, [params.id]);
+  }, [id]);
 
   const fetchVehicle = async () => {
     try {
-      const response = await api.getVehicle(params.id);
+      const response = await api.getVehicle(id);
       if (response.success) {
         setVehicle(response.data.vehicle);
       }
@@ -44,7 +44,7 @@ export default function EditVehiclePage({
 
   const handleSubmit = async (data: any) => {
     try {
-      const response = await api.updateVehicle(params.id, data);
+      const response = await api.updateVehicle(id, data);
       if (response.success) {
         toast({
           title: "Thành công",

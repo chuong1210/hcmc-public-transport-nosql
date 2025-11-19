@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const PROVINCES_API = 'https://provinces.open-api.vn/api';
+const PROVINCES_API = 'https://provinces.open-api.vn/api/v2';
 
 export interface Province {
   code: number;
@@ -17,10 +17,11 @@ export interface Ward {
   division_type: string;
   province_code: number;
 }
-
-export interface ProvinceDetail extends Province {
+interface ProvinceWithWards {
+  province: Province | null;
   wards: Ward[];
 }
+
 
 class ProvincesAPI {
   private baseURL: string;
@@ -39,64 +40,56 @@ class ProvincesAPI {
       return [];
     }
   }
-
-  // Get province with wards (depth=2 để lấy cả phường/xã)
-  async getProvinceWithWards(provinceCode: number): Promise<ProvinceDetail | null> {
+ async getProvinceWithWards(provinceCode: number) {
     try {
       const response = await axios.get(`${this.baseURL}/p/${provinceCode}`, {
-        params: { depth: 2 }
+        params: { depth: 2 }, // depth=2 trả về wards
       });
-      
-      // API trả về districts, nhưng ta cần flatten thành wards
-      const data = response.data;
-      const allWards: Ward[] = [];
-      
-      if (data.districts && Array.isArray(data.districts)) {
-        data.districts.forEach((district: any) => {
+
+      const province = response.data;
+      const wards: Ward[] = [];
+
+      if (province.districts && Array.isArray(province.districts)) {
+        province.districts.forEach((district: any) => {
           if (district.wards && Array.isArray(district.wards)) {
             district.wards.forEach((ward: any) => {
-              allWards.push({
+              wards.push({
                 code: ward.code,
                 name: ward.name,
                 codename: ward.codename,
                 division_type: ward.division_type,
-                province_code: provinceCode,
+                province_code: province.code,
               });
             });
           }
         });
       }
-      
+
       return {
-        code: data.code,
-        name: data.name,
-        codename: data.codename,
-        division_type: data.division_type,
-        phone_code: data.phone_code,
-        wards: allWards,
+        province: {
+          code: province.code,
+          name: province.name,
+          codename: province.codename,
+          division_type: province.division_type,
+          phone_code: province.phone_code,
+        },
+        wards,
       };
     } catch (error) {
-      console.error('Error fetching province details:', error);
-      return null;
+      console.error('Error fetching province with wards:', error);
+      return { province: null, wards: [] };
     }
   }
 
-  // Get wards by province code
-  async getWardsByProvince(provinceCode: number): Promise<Ward[]> {
+  // Get all wards in a province (flat, no districts)
+  async getAllWardsInProvince(provinceCode: number): Promise<Ward[]> {
     try {
       const response = await axios.get(`${this.baseURL}/w/`, {
         params: { province: provinceCode }
       });
-      
-      return response.data.map((ward: any) => ({
-        code: ward.code,
-        name: ward.name,
-        codename: ward.codename,
-        division_type: ward.division_type,
-        province_code: provinceCode,
-      }));
+      return response.data;
     } catch (error) {
-      console.error('Error fetching wards:', error);
+      console.error('Error fetching all wards:', error);
       return [];
     }
   }
@@ -114,9 +107,28 @@ class ProvincesAPI {
     }
   }
 
-  // Get Ho Chi Minh City (code: 79) with wards
-  async getHCMCWithWards(): Promise<ProvinceDetail | null> {
-    return this.getProvinceWithWards(79);
+  // Get Ho Chi Minh City (code: 79) with all wards
+async getHCMCWithWards(): Promise<ProvinceWithWards> {
+    const wards = await this.getAllWardsInProvince(79);
+    return {
+      province: {
+        code: 79,
+        name: 'TP.HCM',
+        codename: 'ho_chi_minh',
+        division_type: 'thành phố trung ương',
+        phone_code: 28,
+      },
+      wards,
+    };
+  }
+  // Helper: Format ward for display
+  formatWardDisplay(ward: Ward): string {
+    return `${ward.name}`;
+  }
+
+  // Helper: Format province for display
+  formatProvinceDisplay(province: Province): string {
+    return province.name;
   }
 }
 

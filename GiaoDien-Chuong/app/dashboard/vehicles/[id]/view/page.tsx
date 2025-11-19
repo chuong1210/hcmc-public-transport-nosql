@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,19 +16,20 @@ import { format } from "date-fns";
 export default function VehicleDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = use(params);
   const [vehicleData, setVehicleData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
     fetchVehicleDetail();
-  }, [params.id]);
+  }, [id]);
 
   const fetchVehicleDetail = async () => {
     try {
-      const response = await api.getVehicle(params.id);
+      const response = await api.getVehicle(id);
       if (response.success) {
         setVehicleData(response.data);
       }
@@ -92,7 +93,7 @@ export default function VehicleDetailPage({
             </p>
           </div>
         </div>
-        <Link href={`/dashboard/vehicles/${params.id}`}>
+        <Link href={`/dashboard/vehicles/${id}`}>
           <Button>
             <Edit className="mr-2 h-4 w-4" />
             Chỉnh sửa

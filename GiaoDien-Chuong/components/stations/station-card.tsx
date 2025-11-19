@@ -52,7 +52,7 @@ export function StationCard({ station, onDelete }: StationCardProps) {
       </CardContent>
 
       <CardFooter className="flex gap-2 justify-end">
-        <Link href={`/dashboard/station/${station.station_id}/view`}>
+        <Link href={`/dashboard/stations/${station.station_id}/view`}>
           <Button variant="ghost" size="sm">
             <Eye className="h-4 w-4 mr-2" />
             Xem

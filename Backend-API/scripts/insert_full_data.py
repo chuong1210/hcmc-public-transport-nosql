@@ -973,7 +973,7 @@ def insert_users(db):
     users = [
         {
             "username": "admin",
-            "password": hash_password("admin123"),
+            "password_hash": hash_password("admin123"),
             "email": "admin@busmanagement.vn",
             "full_name": "Administrator",
             "role": "admin",
@@ -984,7 +984,7 @@ def insert_users(db):
         },
         {
             "username": "manager",
-            "password": hash_password("manager123"),
+            "password_hash": hash_password("manager123"),
             "email": "manager@busmanagement.vn",
             "full_name": "Manager User",
             "role": "manager",
@@ -995,7 +995,7 @@ def insert_users(db):
         },
         {
             "username": "user",
-            "password": hash_password("user123"),
+            "password_hash": hash_password("user123"),
             "email": "user@busmanagement.vn",
             "full_name": "Regular User",
             "role": "user",

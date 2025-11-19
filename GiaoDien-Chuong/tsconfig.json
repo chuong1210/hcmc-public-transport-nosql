@@ -1,3 +1,4 @@
+//ts.coonfig.json
 {
   "compilerOptions": {
     "lib": [
@@ -31,7 +32,11 @@
   "include": [
     "next-env.d.ts",
     "**/*.ts",
+      // "types.d.ts",     
+    "declarations.d.ts",  // <--- Add this line
     "**/*.tsx",
+        "types/**/*.d.ts",  // <-- Thêm dòng này để nó quét đệ quy thư mục types
+
     ".next/types/**/*.ts",
     ".next\\dev/types/**/*.ts",
     ".next\\dev/types/**/*.ts"

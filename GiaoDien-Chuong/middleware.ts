@@ -9,6 +9,13 @@ export function middleware(request: NextRequest) {
   const publicRoutes = ['/login', '/register'];
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
 
+  if (pathname === '/') {
+    if (token) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    } else {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+  }
   // If trying to access protected route without token
   if (!token && !isPublicRoute && pathname.startsWith('/dashboard')) {
     return NextResponse.redirect(new URL('/login', request.url));
@@ -23,5 +30,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login', '/register'],
+  matcher: ['/dashboard/:path*', '/login', '/register','/'],
 };

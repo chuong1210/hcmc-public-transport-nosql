@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,19 +31,20 @@ import {
 export default function StationDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = use(params);
   const [stationData, setStationData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
     fetchStationDetail();
-  }, [params.id]);
+  }, [id]);
 
   const fetchStationDetail = async () => {
     try {
-      const response = await api.getStation(params.id);
+      const response = await api.getStation(id);
       if (response.success) {
         setStationData(response.data);
       }
@@ -89,7 +90,7 @@ export default function StationDetailPage({
             </p>
           </div>
         </div>
-        <Link href={`/dashboard/stations/${params.id}/edit`}>
+        <Link href={`/dashboard/stations/${id}`}>
           <Button>
             <Edit className="mr-2 h-4 w-4" />
             Chỉnh sửa
@@ -109,8 +110,8 @@ export default function StationDetailPage({
               {station.status === "active"
                 ? "Hoạt động"
                 : station.status === "maintenance"
-                ? "Bảo trì"
-                : "Ngừng hoạt động"}
+                  ? "Bảo trì"
+                  : "Ngừng hoạt động"}
             </Badge>
           </CardContent>
         </Card>
@@ -125,8 +126,8 @@ export default function StationDetailPage({
               {station.type === "terminal"
                 ? "Đầu cuối"
                 : station.type === "intermediate"
-                ? "Trung gian"
-                : "Điểm dừng"}
+                  ? "Trung gian"
+                  : "Điểm dừng"}
             </Badge>
           </CardContent>
         </Card>
@@ -271,8 +272,8 @@ export default function StationDetailPage({
                         {item.route.type === "normal"
                           ? "Thường"
                           : item.route.type === "express"
-                          ? "Nhanh"
-                          : "Express"}
+                            ? "Nhanh"
+                            : "Express"}
                       </Badge>
                     </TableCell>
                     <TableCell>#{item.stop_order}</TableCell>

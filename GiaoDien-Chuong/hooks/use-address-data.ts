@@ -14,25 +14,30 @@ export function useAddressData() {
     setLoading(false);
   };
 
-  // Load wards of a province
-  const loadWards = async (provinceCode: number) => {
-    setLoading(true);
-    const data = await provincesAPI.getProvinceWithWards(provinceCode);
-    if (data) {
-      setWards(data.wards);
-    }
-    setLoading(false);
-  };
+// Load wards of a province
+const loadWards = async (provinceCode: number) => {
+  setLoading(true);
+  const data = await provincesAPI.getProvinceWithWards(provinceCode);
+  if (data && data.wards) {
+    setWards(data.wards);
+  } else {
+    setWards([]);
+  }
+  setLoading(false);
+};
 
-  // Load HCMC wards by default
-  const loadHCMC = async () => {
-    setLoading(true);
-    const data = await provincesAPI.getHCMCWithWards();
-    if (data) {
-      setWards(data.wards);
-    }
-    setLoading(false);
-  };
+// Load HCMC wards by default
+const loadHCMC = async () => {
+  setLoading(true);
+  const data = await provincesAPI.getHCMCWithWards();
+  if (data && data.wards) {
+    setWards(data.wards);
+  } else {
+    setWards([]);
+  }
+  setLoading(false);
+};
+
 
   return {
     provinces,

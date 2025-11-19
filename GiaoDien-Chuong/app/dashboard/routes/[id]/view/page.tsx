@@ -1,28 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import {
-  ArrowLeft,
-  Edit,
-  MapPin,
-  Clock,
-  DollarSign,
-  Route as RouteIcon,
-} from "lucide-react";
+import { ArrowLeft, Edit, MapPin, Clock, DollarSign, Bus } from "lucide-react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import type { BusRoute } from "@/types";
-import {
-  formatCurrency,
-  formatDistance,
-  getStatusColor,
-  getTypeColor,
-} from "@/lib/utils";
+import { getStatusColor, getTypeColor } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -35,19 +23,22 @@ import {
 export default function RouteDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  // Unwrap params Promise
+  const { id } = use(params);
+
   const [routeData, setRouteData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
     fetchRouteDetail();
-  }, [params.id]);
+  }, [id]); // Now using unwrapped id
 
   const fetchRouteDetail = async () => {
     try {
-      const response = await api.getRoute(params.id);
+      const response = await api.getRoute(id);
       if (response.success) {
         setRouteData(response.data);
       }
@@ -62,7 +53,7 @@ export default function RouteDetailPage({
   if (loading) {
     return (
       <div className="flex justify-center py-12">
-        <div className="spinner" />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
       </div>
     );
   }
@@ -91,7 +82,7 @@ export default function RouteDetailPage({
             <p className="text-muted-foreground">{route.route_name}</p>
           </div>
         </div>
-        <Link href={`/dashboard/routes/${params.id}`}>
+        <Link href={`/dashboard/routes/${id}`}>
           <Button>
             <Edit className="mr-2 h-4 w-4" />
             Chỉnh sửa
@@ -104,7 +95,7 @@ export default function RouteDetailPage({
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Trạng thái</CardTitle>
-            <RouteIcon className="h-4 w-4 text-muted-foreground" />
+            <MapPin className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <Badge className={getStatusColor(route.status)}>
@@ -116,16 +107,26 @@ export default function RouteDetailPage({
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Loại tuyến</CardTitle>
-            <RouteIcon className="h-4 w-4 text-muted-foreground" />
+            <Bus className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <Badge className={getTypeColor(route.type)}>
               {route.type === "normal"
                 ? "Thường"
                 : route.type === "express"
-                ? "Nhanh"
-                : "Express"}
+                  ? "Nhanh"
+                  : "Express"}
             </Badge>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Tần suất</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{route.frequency} phút</div>
           </CardContent>
         </Card>
 
@@ -136,18 +137,6 @@ export default function RouteDetailPage({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stations.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Khoảng cách</CardTitle>
-            <RouteIcon className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatDistance(route.total_distance)}
-            </div>
           </CardContent>
         </Card>
       </div>
@@ -170,7 +159,7 @@ export default function RouteDetailPage({
             </div>
             <Separator />
             <div className="flex justify-between">
-              <span className="text-sm font-medium">Hướng:</span>
+              <span className="text-sm font-medium">Chiều:</span>
               <span className="text-sm">
                 {route.direction === "two-way" ? "Hai chiều" : "Một chiều"}
               </span>
@@ -180,59 +169,52 @@ export default function RouteDetailPage({
               <span className="text-sm font-medium">Nhà vận hành:</span>
               <span className="text-sm">{route.operator}</span>
             </div>
-            <Separator />
-            <div className="flex justify-between">
-              <span className="text-sm font-medium">Thời gian hoạt động:</span>
-              <span className="text-sm">
-                {route.operating_hours.start} - {route.operating_hours.end}
-              </span>
-            </div>
-            <Separator />
-            <div className="flex justify-between">
-              <span className="text-sm font-medium">Tần suất:</span>
-              <span className="text-sm">{route.frequency} phút/chuyến</span>
-            </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Giá vé</CardTitle>
+            <CardTitle>Giờ hoạt động & Giá vé</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-              <span className="text-sm font-medium">Người lớn</span>
-              <span className="text-lg font-bold text-green-600">
-                {formatCurrency(route.fare.adult)}
+            <div className="flex justify-between">
+              <span className="text-sm font-medium">Giờ bắt đầu:</span>
+              <span className="text-sm">{route.operating_hours?.start}</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-sm font-medium">Giờ kết thúc:</span>
+              <span className="text-sm">{route.operating_hours?.end}</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-sm font-medium">Giá người lớn:</span>
+              <span className="text-sm">
+                {route.fare?.adult.toLocaleString()} VNĐ
               </span>
             </div>
-            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-              <span className="text-sm font-medium">Sinh viên</span>
-              <span className="text-lg font-bold text-blue-600">
-                {formatCurrency(route.fare.student)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
-              <span className="text-sm font-medium">Người cao tuổi</span>
-              <span className="text-lg font-bold text-orange-600">
-                {formatCurrency(route.fare.senior)}
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-sm font-medium">Giá học sinh:</span>
+              <span className="text-sm">
+                {route.fare?.student.toLocaleString()} VNĐ
               </span>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Stations List */}
+      {/* Stations Timeline */}
       <Card>
         <CardHeader>
-          <CardTitle>Danh sách trạm dừng ({stations.length} trạm)</CardTitle>
+          <CardTitle>Lộ trình ({stations.length} trạm)</CardTitle>
         </CardHeader>
         <CardContent>
           {stations.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[100px]">Thứ tự</TableHead>
+                  <TableHead>STT</TableHead>
                   <TableHead>Tên trạm</TableHead>
                   <TableHead>Địa chỉ</TableHead>
                   <TableHead>Thời gian đến</TableHead>
@@ -240,44 +222,47 @@ export default function RouteDetailPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {stations
-                  .sort((a: any, b: any) => a.stop_order - b.stop_order)
-                  .map((stop: any) => (
-                    <TableRow key={stop.stop_order}>
-                      <TableCell className="font-medium">
-                        #{stop.stop_order}
-                      </TableCell>
-                      <TableCell>{stop.station.name}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {stop.station.address.street},{" "}
-                        {stop.station.address.ward}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm">
-                            {stop.arrival_offset} phút
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {stop.is_main_stop ? (
-                          <Badge variant="outline">Trạm chính</Badge>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">
-                            -
-                          </span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                {stations.map((item: any, idx: number) => (
+                  <TableRow key={idx}>
+                    <TableCell>
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground font-bold">
+                        {item.stop_order}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <Link
+                        href={`/dashboard/stations/${item.station.station_id}/view`}
+                        className="text-blue-600 hover:underline"
+                      >
+                        {item.station.name}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {item.station.address.street}, {item.station.address.ward}
+                    </TableCell>
+                    <TableCell>
+                      {item.arrival_offset === 0 ? (
+                        <Badge variant="outline">Xuất phát</Badge>
+                      ) : (
+                        <span className="text-sm">
+                          +{item.arrival_offset} phút
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {item.is_main_stop && (
+                        <Badge variant="secondary">Trạm chính</Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           ) : (
-            <div className="text-center py-12">
-              <MapPin className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <div className="text-center py-8">
+              <Bus className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">
-                Chưa có trạm dừng nào được cấu hình
+                Chưa có trạm nào trong lộ trình
               </p>
             </div>
           )}

@@ -3,7 +3,7 @@ from app.utils.db_connection import db_connection
 from flask_jwt_extended import jwt_required
 from app.models.route import Route
 route_bp = Blueprint('route', __name__, url_prefix='/api/routes')
-
+from uuid import uuid4
 @route_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_all_routes():
@@ -124,14 +124,15 @@ def create_route():
     try:
         data = request.get_json()
         
-        required_fields = ['route_id', 'route_name', 'route_code']
+        required_fields = [ 'route_name', 'route_code']
         for field in required_fields:
             if field not in data:
                 return jsonify({
                     "success": False,
                     "error": f"Missing required field: {field}"
                 }), 400
-        
+        if 'route_id' not in data or not data['route_id']:
+            data['route_id'] = f"R{str(uuid4())[:8].upper()}" # VD: R1A2B3C4D
         route = Route.from_dict(data)
         
         collection = db_connection.get_collection('routes')
@@ -149,16 +150,61 @@ def create_route():
             "success": False,
             "error": str(e)
         }), 500
-
 @route_bp.route('/<route_id>', methods=['PUT'])
+@jwt_required()  # Thêm jwt_required để bảo mật
 def update_route(route_id):
     """Update route"""
     try:
         data = request.get_json()
         db = db_connection.get_db()
         
-        # Similar to update_station implementation
-        # ... (tương tự như station)
+        # 1. Check if route exists
+        aql_check = """
+        FOR route IN routes
+            FILTER route.route_id == @route_id
+            RETURN route
+        """
+        bind_vars = {'route_id': route_id}
+        result = db.AQLQuery(aql_check, bindVars=bind_vars, rawResults=True)
+        routes = list(result)
+        
+        if not routes:
+            return jsonify({
+                "success": False,
+                "error": "Route not found"
+            }), 404
+        
+        # 2. Update route
+        # Add updated_at timestamp
+        from datetime import datetime
+        data['updated_at'] = datetime.now().isoformat()
+        
+        # Don't allow updating _key or route_id directly via this endpoint if not intended
+        # but let's assume data contains safe fields.
+        # Remove keys that shouldn't be updated if necessary, e.g. _key, _id, _rev
+        for key in ['_key', '_id', '_rev', 'route_id']:
+            data.pop(key, None)
+
+        aql_update = """
+        FOR route IN routes
+            FILTER route.route_id == @route_id
+            UPDATE route WITH @data IN routes
+            RETURN NEW
+        """
+        
+        bind_vars = {
+            'route_id': route_id,
+            'data': data
+        }
+        
+        result = db.AQLQuery(aql_update, bindVars=bind_vars, rawResults=True)
+        updated_route = list(result)[0]
+        
+        return jsonify({
+            "success": True,
+            "message": "Route updated successfully",
+            "data": updated_route
+        }), 200
         
     except Exception as e:
         return jsonify({
@@ -167,21 +213,72 @@ def update_route(route_id):
         }), 500
 
 @route_bp.route('/<route_id>', methods=['DELETE'])
+@jwt_required() # Thêm jwt_required để bảo mật
 def delete_route(route_id):
     """Delete route"""
     try:
         db = db_connection.get_db()
         
-        # Similar to delete_station implementation
-        # ... (tương tự như station)
+        # 1. Check if route exists first
+        aql_check = """
+        FOR route IN routes
+            FILTER route.route_id == @route_id
+            RETURN route
+        """
+        bind_vars = {'route_id': route_id}
+        result = db.AQLQuery(aql_check, bindVars=bind_vars, rawResults=True)
+        routes = list(result)
+        
+        if not routes:
+            return jsonify({
+                "success": False,
+                "error": "Route not found"
+            }), 404
+        
+        # 2. Delete route
+        # Optional: You might want to delete related edges (serves, operates_on) first 
+        # to maintain data integrity, or rely on ArangoDB graph consistency if configured.
+        # Here is a simple delete of the document.
+        
+        # Delete edges first (Recommended for clean cleanup)
+        # Delete 'serves' edges connected to this route
+        aql_delete_serves = """
+        FOR route IN routes
+            FILTER route.route_id == @route_id
+            FOR v, e IN OUTBOUND route serves
+                REMOVE e IN serves
+        """
+        db.AQLQuery(aql_delete_serves, bindVars=bind_vars)
+
+        # Delete 'operates_on' edges connected to this route (vehicles on this route)
+        # operates_on is: Vehicle -> Route (INBOUND from Route perspective)
+        aql_delete_operates = """
+        FOR route IN routes
+            FILTER route.route_id == @route_id
+            FOR v, e IN INBOUND route operates_on
+                REMOVE e IN operates_on
+        """
+        db.AQLQuery(aql_delete_operates, bindVars=bind_vars)
+
+        # Finally delete the route document
+        aql_delete = """
+        FOR route IN routes
+            FILTER route.route_id == @route_id
+            REMOVE route IN routes
+        """
+        
+        db.AQLQuery(aql_delete, bindVars=bind_vars)
+        
+        return jsonify({
+            "success": True,
+            "message": "Route and related connections deleted successfully"
+        }), 200
         
     except Exception as e:
         return jsonify({
             "success": False,
             "error": str(e)
         }), 500
-    
-
 # backend/app/routes/route_routes.py
 
 @route_bp.route('/<route_id>/stops', methods=['POST'])
