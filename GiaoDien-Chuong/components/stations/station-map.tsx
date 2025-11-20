@@ -20,60 +20,72 @@ export function StationMap({
 }: StationMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<vietmapgl.Map | null>(null);
-  // Thêm ref này để kiểm soát việc khởi tạo map, tránh duplicate trong Strict Mode
   const mapInitRef = useRef<boolean>(false);
   const markersRef = useRef<vietmapgl.Marker[]>([]);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
 
-  // 1. Khởi tạo bản đồ
+  // 1. Khởi tạo bản đồ (Safe Init & Cleanup)
   useEffect(() => {
-    // Nếu đã init hoặc không có container thì dừng
-    if (mapInitRef.current || !mapContainerRef.current) return;
+    if (!mapContainerRef.current || mapInitRef.current) return;
 
-    mapInitRef.current = true; // Đánh dấu đang/đã khởi tạo
+    mapInitRef.current = true;
 
     const apiKey = process.env.NEXT_PUBLIC_VIETMAP_API_KEY || "";
+    let mapInstance: any = null;
 
     try {
-      const map = new vietmapgl.Map({
+      mapInstance = new vietmapgl.Map({
         container: mapContainerRef.current,
         style: `https://maps.vietmap.vn/maps/styles/tm/style.json?apikey=${apiKey}`,
-        center: [center[1], center[0]],
+        center: [center[1], center[0]], // [Lng, Lat]
         zoom: zoom,
         pitch: 45,
       });
 
-      // Lưu ref ngay lập tức
-      mapRef.current = map;
+      mapRef.current = mapInstance;
+      mapInstance.addControl(new vietmapgl.NavigationControl(), "top-right");
 
-      map.addControl(new vietmapgl.NavigationControl(), "top-right");
-
-      map.on("load", () => {
+      mapInstance.on("load", () => {
+        if (!mapInstance) return;
         setIsMapLoaded(true);
-        map.resize();
+        mapInstance.resize();
       });
 
-      // Bắt lỗi chung của map để tránh crash ứng dụng
-      map.on("error", (e) => {
-        console.warn("Vietmap error:", e);
+      mapInstance.on("error", (e: any) => {
+        console.warn("Vietmap error (safe to ignore):", e);
       });
     } catch (error) {
       console.error("Error initializing map:", error);
+      mapInitRef.current = false;
     }
 
-    // Cleanup
+    // CLEANUP AN TOÀN
     return () => {
-      // Trong Strict Mode, React sẽ unmount ngay lập tức.
-      // Chúng ta cần kiểm tra kỹ trước khi remove.
-      if (mapRef.current) {
-        try {
-          mapRef.current.remove();
-        } catch (e) {
-          // Bỏ qua lỗi AbortError khi unmount nhanh
-          console.debug("Map remove error (safe to ignore):", e);
-        }
+      setIsMapLoaded(false);
+
+      if (mapInstance) {
+        // Gỡ event trước
+        mapInstance.off("load");
+        mapInstance.off("error");
+
+        // Đẩy việc remove xuống cuối hàng đợi sự kiện để tránh xung đột với React Strict Mode
+        setTimeout(() => {
+          try {
+            // Kiểm tra nếu map vẫn còn gắn với container thì mới remove
+            if (mapInstance && mapInstance._container) {
+              mapInstance.remove();
+            }
+          } catch (e) {
+            // Nuốt lỗi AbortError (vô hại)
+            if (process.env.NODE_ENV === "development") {
+              console.debug("Map cleanup silent error:", e);
+            }
+          }
+        }, 0);
+
         mapRef.current = null;
-        mapInitRef.current = false; // Reset trạng thái để có thể init lại nếu cần
+        mapInstance = null;
+        mapInitRef.current = false;
       }
     };
   }, []); // Chỉ chạy 1 lần khi mount
@@ -122,19 +134,23 @@ export function StationMap({
   useEffect(() => {
     if (!mapRef.current || !isMapLoaded) return;
 
-    mapRef.current.flyTo({
-      center: [center[1], center[0]],
-      zoom: zoom,
-      essential: true,
-      duration: 1500,
-    });
+    try {
+      mapRef.current.flyTo({
+        center: [center[1], center[0]],
+        zoom: zoom,
+        essential: true,
+        duration: 1500,
+      });
+    } catch (e) {
+      // Bỏ qua lỗi nếu map đang bận hoặc bị hủy
+    }
   }, [center, zoom, isMapLoaded]);
 
   return (
-    <div className="relative h-[500px] w-full rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+    <div className="relative h-[500px] w-full rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-gray-100">
       <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
       {!isMapLoaded && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-100/80 z-10 backdrop-blur-sm">
+        <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10 backdrop-blur-sm">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       )}

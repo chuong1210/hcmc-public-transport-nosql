@@ -129,10 +129,11 @@ export default function StationCreatePage() {
   }) => {
     // 1. Tìm mã Tỉnh/Thành phố tương ứng trong danh sách provinces để update select box
     // Vietmap trả về tên (VD: "Thành Phố Hồ Chí Minh"), ta cần tìm code (VD: 79)
-    const foundProvince = provinces.find(p =>
-      // So sánh tương đối tên (bỏ dấu, chữ hoa thường nếu cần)
-      p.name.toLowerCase().includes(data.city.toLowerCase()) ||
-      data.city.toLowerCase().includes(p.name.toLowerCase())
+    const foundProvince = provinces.find(
+      (p) =>
+        // So sánh tương đối tên (bỏ dấu, chữ hoa thường nếu cần)
+        p.name.toLowerCase().includes(data.city.toLowerCase()) ||
+        data.city.toLowerCase().includes(p.name.toLowerCase())
     );
 
     const newProvinceCode = foundProvince ? foundProvince.code : 79; // Mặc định HCM nếu ko tìm thấy
@@ -304,7 +305,7 @@ export default function StationCreatePage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
       <div className="flex items-center gap-4">
         <Link href="/dashboard/stations">
           <Button variant="ghost" size="icon">
@@ -325,26 +326,32 @@ export default function StationCreatePage() {
             <CardHeader>
               <CardTitle>Thông tin cơ bản</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6"> {/* Tăng khoảng cách y-6 */}
-
+            <CardContent className="space-y-6">
+              {" "}
+              {/* Tăng khoảng cách y-6 */}
               {/* --- THÊM COMPONENT AUTOCOMPLETE VÀO ĐÂY --- */}
               <div className="space-y-2">
-                <Label className="text-primary font-semibold">Tìm kiếm nhanh (Khuyên dùng)</Label>
+                <Label className="text-primary font-semibold">
+                  Tìm kiếm nhanh (Khuyên dùng)
+                </Label>
                 <AddressAutocomplete onSelect={handleAutocompleteSelect} />
                 <p className="text-xs text-muted-foreground">
-                  Nhập tên địa điểm (VD: "Đại học Bách Khoa") để tự động điền địa chỉ và tọa độ.
+                  Nhập tên địa điểm (VD: "Đại học Bách Khoa") để tự động điền
+                  địa chỉ và tọa độ.
                 </p>
               </div>
-
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">Hoặc nhập thủ công</span>
+                  <span className="bg-background px-2 text-muted-foreground">
+                    Hoặc nhập thủ công
+                  </span>
                 </div>
               </div>
-              {/* -------------------------------------------- */}              <div className="grid gap-4 md:grid-cols-2">
+              {/* -------------------------------------------- */}{" "}
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="station_id">
                     Mã trạm <span className="text-red-500">*</span>

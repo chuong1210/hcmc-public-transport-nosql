@@ -88,7 +88,8 @@ export function StationForm({
       wifi: initialData?.facilities?.wifi || false,
       toilet: initialData?.facilities?.toilet || false,
       atm: initialData?.facilities?.atm || false,
-      wheelchair_accessible: initialData?.facilities?.wheelchair_accessible || false,
+      wheelchair_accessible:
+        initialData?.facilities?.wheelchair_accessible || false,
     },
   });
 
@@ -106,10 +107,11 @@ export function StationForm({
         // B2: Xác định mã tỉnh từ dữ liệu cũ (nếu có)
         if (initialData?.address?.city) {
           const cityName = initialData.address.city;
-          const foundP = listProvinces.find((p: any) =>
-            p.name === cityName ||
-            p.name.toLowerCase().includes(cityName.toLowerCase()) ||
-            cityName.toLowerCase().includes(p.name.toLowerCase())
+          const foundP = listProvinces.find(
+            (p: any) =>
+              p.name === cityName ||
+              p.name.toLowerCase().includes(cityName.toLowerCase()) ||
+              cityName.toLowerCase().includes(p.name.toLowerCase())
           );
           if (foundP) pCode = foundP.code;
         }
@@ -131,10 +133,13 @@ export function StationForm({
           } else {
             // Fallback: Lấy phường đầu tiên nếu tên cũ không khớp (do sáp nhập/đổi tên)
             const firstWard = listWards[0];
-            console.warn(`Không tìm thấy phường "${wardName}". Tự động chọn "${firstWard.name}"`);
+            console.warn(
+              `Không tìm thấy phường "${wardName}". Tự động chọn "${firstWard.name}"`
+            );
             form.setValue("ward_code", firstWard.code.toString());
 
-            if (initialData) { // Chỉ hiện thông báo khi đang edit
+            if (initialData) {
+              // Chỉ hiện thông báo khi đang edit
               toast({
                 title: "Lưu ý địa chỉ",
                 description: `Phường "${wardName}" không có trong danh sách mới. Đã chọn mặc định "${firstWard.name}".`,
@@ -142,10 +147,13 @@ export function StationForm({
             }
           }
         }
-
       } catch (error) {
         console.error("Lỗi khởi tạo form:", error);
-        toast({ title: "Lỗi hệ thống", description: "Không tải được dữ liệu hành chính.", variant: "destructive" });
+        toast({
+          title: "Lỗi hệ thống",
+          description: "Không tải được dữ liệu hành chính.",
+          variant: "destructive",
+        });
       } finally {
         setIsDataLoading(false);
       }
@@ -154,7 +162,6 @@ export function StationForm({
     initForm();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Chỉ chạy 1 lần khi mount
-
 
   // --- 2. XỬ LÝ KHI NGƯỜI DÙNG ĐỔI TỈNH ---
   const onProvinceChange = async (value: string) => {
@@ -165,16 +172,21 @@ export function StationForm({
     setWards([]); // Xóa danh sách cũ để tránh chọn nhầm
 
     try {
-      const newWards = await provincesAPI.getAllWardsInProvince(parseInt(value));
+      const newWards = await provincesAPI.getAllWardsInProvince(
+        parseInt(value)
+      );
       setWards(newWards);
     } catch (error) {
       console.error("Lỗi load phường:", error);
-      toast({ title: "Lỗi", description: "Không tải được danh sách phường", variant: "destructive" });
+      toast({
+        title: "Lỗi",
+        description: "Không tải được danh sách phường",
+        variant: "destructive",
+      });
     } finally {
       setIsWardLoading(false);
     }
   };
-
 
   // --- 3. XỬ LÝ AUTOCOMPLETE (Chọn từ gợi ý) ---
   const handleAutocompleteSelect = async (data: {
@@ -185,9 +197,10 @@ export function StationForm({
     lng: number;
   }) => {
     // Tìm mã tỉnh mới
-    const foundProvince = provinces.find(p =>
-      p.name.toLowerCase().includes(data.city.toLowerCase()) ||
-      data.city.toLowerCase().includes(p.name.toLowerCase())
+    const foundProvince = provinces.find(
+      (p) =>
+        p.name.toLowerCase().includes(data.city.toLowerCase()) ||
+        data.city.toLowerCase().includes(p.name.toLowerCase())
     );
     const pCode = foundProvince ? foundProvince.code : 79;
 
@@ -204,9 +217,10 @@ export function StationForm({
       setWards(newWards);
 
       // Tìm phường (so sánh tương đối)
-      const foundWard = newWards.find((w: any) =>
-        w.name.toLowerCase().includes(data.ward.toLowerCase()) ||
-        data.ward.toLowerCase().includes(w.name.toLowerCase())
+      const foundWard = newWards.find(
+        (w: any) =>
+          w.name.toLowerCase().includes(data.ward.toLowerCase()) ||
+          data.ward.toLowerCase().includes(w.name.toLowerCase())
       );
 
       if (foundWard) {
@@ -223,7 +237,6 @@ export function StationForm({
       setIsWardLoading(false);
     }
   };
-
 
   // --- 4. TÍNH NĂNG AUTO GEOCODE (Lấy tọa độ thủ công) ---
   const handleAutoGeocode = async () => {
@@ -245,7 +258,9 @@ export function StationForm({
 
     setIsGeocoding(true);
     try {
-      const fullAddress = `${street}, ${ward ? ward.name + ", " : ""}${province?.name || ""}`;
+      const fullAddress = `${street}, ${ward ? ward.name + ", " : ""}${
+        province?.name || ""
+      }`;
       console.log("🚀 Đang tìm tọa độ cho:", fullAddress);
 
       const apiKey = process.env.NEXT_PUBLIC_VIETMAP_API_KEY || "";
@@ -257,7 +272,11 @@ export function StationForm({
       const searchData = await searchRes.json();
 
       if (!Array.isArray(searchData) || searchData.length === 0) {
-        toast({ title: "Không tìm thấy", description: "Vui lòng kiểm tra lại địa chỉ.", variant: "destructive" });
+        toast({
+          title: "Không tìm thấy",
+          description: "Vui lòng kiểm tra lại địa chỉ.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -279,21 +298,33 @@ export function StationForm({
       if (lat && lng) {
         form.setValue("latitude", parseFloat(lat));
         form.setValue("longitude", parseFloat(lng));
-        toast({ title: "Thành công", description: `Đã cập nhật: Lat ${lat}, Lng ${lng}` });
+        toast({
+          title: "Thành công",
+          description: `Đã cập nhật: Lat ${lat}, Lng ${lng}`,
+        });
       } else {
-        toast({ title: "Lỗi dữ liệu", description: "Không lấy được tọa độ từ nhà cung cấp.", variant: "destructive" });
+        toast({
+          title: "Lỗi dữ liệu",
+          description: "Không lấy được tọa độ từ nhà cung cấp.",
+          variant: "destructive",
+        });
       }
-
     } catch (error) {
       console.error("Geocoding error:", error);
-      toast({ title: "Lỗi hệ thống", description: "Có lỗi khi kết nối API bản đồ.", variant: "destructive" });
+      toast({
+        title: "Lỗi hệ thống",
+        description: "Có lỗi khi kết nối API bản đồ.",
+        variant: "destructive",
+      });
     } finally {
       setIsGeocoding(false);
     }
   };
 
   const handleSubmit = async (values: z.infer<typeof formSchema>) => {
-    const province = provinces.find((p) => p.code === parseInt(values.province_code));
+    const province = provinces.find(
+      (p) => p.code === parseInt(values.province_code)
+    );
     const ward = wards?.find((w) => w.code === parseInt(values.ward_code));
 
     const data = {
@@ -326,11 +357,12 @@ export function StationForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-
         {/* Basic Information */}
         <Card className="glass-effect border-sky-200/50">
           <CardHeader>
-            <CardTitle className="gradient-text-ocean">Thông tin cơ bản</CardTitle>
+            <CardTitle className="gradient-text-ocean">
+              Thông tin cơ bản
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -341,7 +373,12 @@ export function StationForm({
                   <FormItem>
                     <FormLabel>Mã trạm *</FormLabel>
                     <FormControl>
-                      <Input placeholder="ST001" {...field} disabled={!!initialData} className="border-sky-200 focus:border-sky-500" />
+                      <Input
+                        placeholder="ST001"
+                        {...field}
+                        disabled={!!initialData}
+                        className="border-sky-200 focus:border-sky-500"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -354,7 +391,11 @@ export function StationForm({
                   <FormItem>
                     <FormLabel>Tên trạm *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Bến Xe Miền Đông" {...field} className="border-sky-200 focus:border-sky-500" />
+                      <Input
+                        placeholder="Bến Xe Miền Đông"
+                        {...field}
+                        className="border-sky-200 focus:border-sky-500"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -365,13 +406,21 @@ export function StationForm({
             {/* ===== ADDRESS SECTION ===== */}
             <div className="space-y-4 pt-2">
               <div className="space-y-2">
-                <Label className="text-sky-700 font-semibold">Tìm kiếm nhanh (Tự động điền)</Label>
+                <Label className="text-sky-700 font-semibold">
+                  Tìm kiếm nhanh (Tự động điền)
+                </Label>
                 <AddressAutocomplete onSelect={handleAutocompleteSelect} />
               </div>
 
               <div className="relative py-2">
-                <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-sky-100" /></div>
-                <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">Chi tiết địa chỉ</span></div>
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-sky-100" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    Chi tiết địa chỉ
+                  </span>
+                </div>
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
@@ -382,7 +431,11 @@ export function StationForm({
                     <FormItem className="col-span-2 md:col-span-1">
                       <FormLabel>Số nhà, đường *</FormLabel>
                       <FormControl>
-                        <Input placeholder="123 Đường ABC" {...field} className="border-sky-200 focus:border-sky-500" />
+                        <Input
+                          placeholder="123 Đường ABC"
+                          {...field}
+                          className="border-sky-200 focus:border-sky-500"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -403,12 +456,21 @@ export function StationForm({
                         >
                           <FormControl>
                             <SelectTrigger className="border-sky-200 focus:border-sky-500">
-                              {isDataLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <SelectValue placeholder="Chọn tỉnh" />}
+                              {isDataLoading ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <SelectValue placeholder="Chọn tỉnh" />
+                              )}
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
                             {provinces.map((province) => (
-                              <SelectItem key={province.code} value={province.code.toString()}>{province.name}</SelectItem>
+                              <SelectItem
+                                key={province.code}
+                                value={province.code.toString()}
+                              >
+                                {province.name}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -438,17 +500,30 @@ export function StationForm({
                                   <span className="text-xs">Đang tải...</span>
                                 </div>
                               ) : (
-                                <SelectValue placeholder={wards.length > 0 ? "Chọn phường" : "Không có dữ liệu"} />
+                                <SelectValue
+                                  placeholder={
+                                    wards.length > 0
+                                      ? "Chọn phường"
+                                      : "Không có dữ liệu"
+                                  }
+                                />
                               )}
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent className="max-h-[200px]">
                             {wards.length > 0 ? (
                               wards.map((ward) => (
-                                <SelectItem key={ward.code} value={ward.code.toString()}>{ward.name}</SelectItem>
+                                <SelectItem
+                                  key={ward.code}
+                                  value={ward.code.toString()}
+                                >
+                                  {ward.name}
+                                </SelectItem>
                               ))
                             ) : (
-                              <div className="p-2 text-sm text-muted-foreground text-center">Vui lòng chọn Tỉnh trước</div>
+                              <div className="p-2 text-sm text-muted-foreground text-center">
+                                Vui lòng chọn Tỉnh trước
+                              </div>
                             )}
                           </SelectContent>
                         </Select>
@@ -474,7 +549,11 @@ export function StationForm({
               disabled={isGeocoding}
               className="border-sky-200 text-sky-700 hover:bg-sky-50"
             >
-              {isGeocoding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
+              {isGeocoding ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <MapPin className="mr-2 h-4 w-4" />
+              )}
               Lấy tọa độ từ địa chỉ
             </Button>
           </CardHeader>
@@ -491,7 +570,9 @@ export function StationForm({
                         type="number"
                         step="0.000001"
                         {...field}
-                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        onChange={(e) =>
+                          field.onChange(parseFloat(e.target.value) || 0)
+                        }
                         className="border-sky-200 focus:border-sky-500"
                       />
                     </FormControl>
@@ -510,7 +591,9 @@ export function StationForm({
                         type="number"
                         step="0.000001"
                         {...field}
-                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        onChange={(e) =>
+                          field.onChange(parseFloat(e.target.value) || 0)
+                        }
                         className="border-sky-200 focus:border-sky-500"
                       />
                     </FormControl>
@@ -524,45 +607,79 @@ export function StationForm({
         {/* Properties & Facilities */}
         <div className="grid md:grid-cols-2 gap-6">
           <Card className="glass-effect border-sky-200/50">
-            <CardHeader><CardTitle className="gradient-text-ocean">Thuộc tính</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="gradient-text-ocean">Thuộc tính</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-4">
-              <FormField control={form.control} name="type" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Loại trạm</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      <SelectItem value="terminal">Đầu cuối</SelectItem>
-                      <SelectItem value="intermediate">Trung gian</SelectItem>
-                      <SelectItem value="stop">Điểm dừng</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="status" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Trạng thái</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      <SelectItem value="active">Hoạt động</SelectItem>
-                      <SelectItem value="maintenance">Bảo trì</SelectItem>
-                      <SelectItem value="inactive">Ngừng hoạt động</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="capacity" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Sức chứa</FormLabel>
-                  <FormControl><Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value) || 0)} /></FormControl>
-                </FormItem>
-              )} />
+              <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Loại trạm</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="terminal">Đầu cuối</SelectItem>
+                        <SelectItem value="intermediate">Trung gian</SelectItem>
+                        <SelectItem value="stop">Điểm dừng</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Trạng thái</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="active">Hoạt động</SelectItem>
+                        <SelectItem value="maintenance">Bảo trì</SelectItem>
+                        <SelectItem value="inactive">
+                          Ngừng hoạt động
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="capacity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sức chứa</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        {...field}
+                        onChange={(e) =>
+                          field.onChange(parseInt(e.target.value) || 0)
+                        }
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
             </CardContent>
           </Card>
 
           <Card className="glass-effect border-sky-200/50">
-            <CardHeader><CardTitle className="gradient-text-ocean">Tiện ích</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="gradient-text-ocean">Tiện ích</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-4">
               {[
                 { name: "waiting_area", label: "Khu vực chờ" },
@@ -578,8 +695,15 @@ export function StationForm({
                   name={item.name}
                   render={({ field }) => (
                     <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3 hover:bg-accent">
-                      <FormControl><Checkbox checked={field.value as boolean} onCheckedChange={field.onChange} /></FormControl>
-                      <div className="space-y-1 leading-none"><FormLabel>{item.label}</FormLabel></div>
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value as boolean}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>{item.label}</FormLabel>
+                      </div>
                     </FormItem>
                   )}
                 />
@@ -589,13 +713,18 @@ export function StationForm({
         </div>
 
         <div className="flex justify-end gap-4">
-          <Button type="button" variant="outline" onClick={onCancel} className="border-sky-200 hover:bg-sky-50">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            className="border-sky-200 hover:bg-sky-50"
+          >
             Hủy
           </Button>
           <Button
             type="submit"
             disabled={isLoading}
-            className="bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-600 hover:to-cyan-600 shadow-lg shadow-sky-500/30 text-white"
+            className="bg-linear-to-r from-sky-500 to-cyan-500 hover:from-sky-600 hover:to-cyan-600 shadow-lg shadow-sky-500/30 text-white"
           >
             {isLoading ? (
               <>

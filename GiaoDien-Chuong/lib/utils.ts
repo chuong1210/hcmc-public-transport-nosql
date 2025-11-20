@@ -12,13 +12,17 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-export function formatDistance(distance: number): string {
-    if (typeof distance !== "number" || isNaN(distance)) {
-    return "0.00 km";
+export function formatDistance(meters: number): string {
+  if (!meters && meters !== 0) return "0 m";
+  
+  // Nếu khoảng cách lớn hơn 1000m thì đổi sang km
+  if (meters >= 1000) {
+    return `${(meters / 1000).toFixed(2)} km`; 
   }
-  return `${distance.toFixed(2)} km`;
+  
+  // Nếu nhỏ hơn 1000m thì giữ nguyên mét
+  return `${Math.round(meters)} m`;
 }
-
 export function formatDuration(minutes: number): string {
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;

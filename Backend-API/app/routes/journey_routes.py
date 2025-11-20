@@ -18,270 +18,136 @@ def calculate_distance(lat1, lng1, lat2, lng2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
     
     return R * c
-
 @journey_bp.route('/shortest-path', methods=['POST'])
 @jwt_required()
 def find_shortest_path():
-    """Find shortest path between two locations using bus routes"""
     try:
         data = request.get_json()
-        from_lat = data.get('from_lat')
-        from_lng = data.get('from_lng')
-        to_lat = data.get('to_lat')
-        to_lng = data.get('to_lng')
+        from_station_id = data.get('from_station_id')
+        to_station_id = data.get('to_station_id')
         
-        if not all([from_lat, from_lng, to_lat, to_lng]):
-            return jsonify({
-                "success": False,
-                "error": "Missing required coordinates"
-            }), 400
-        
+        if not from_station_id or not to_station_id:
+            return jsonify({"success": False, "error": "Thiếu thông tin trạm"}), 400
+            
+        if from_station_id == to_station_id:
+             return jsonify({"success": False, "error": "Điểm đi và đến trùng nhau"}), 400
+
         db = db_connection.get_db()
+
+        # --- BƯỚC 1: Lấy ID hệ thống của trạm ---
+        print(f"🔍 Đang tìm ID cho: {from_station_id} -> {to_station_id}")
         
-        # Find nearest stations to start and end points
-        aql_find_stations = """
-        FOR station IN stations
-            FILTER station.status == "active"
-            LET dist_from = DISTANCE(
-                @from_lat, @from_lng,
-                station.location.latitude, station.location.longitude
-            )
-            LET dist_to = DISTANCE(
-                @to_lat, @to_lng,
-                station.location.latitude, station.location.longitude
-            )
-            RETURN {
-                station: station,
-                dist_from: dist_from,
-                dist_to: dist_to
-            }
+        aql_get_ids = """
+        LET start = (FOR s IN stations FILTER s.station_id == @from_id LIMIT 1 RETURN s)
+        LET end = (FOR s IN stations FILTER s.station_id == @to_id LIMIT 1 RETURN s)
+        RETURN { 
+            start: start[0], 
+            end: end[0] 
+        }
         """
         
-        result = db.AQLQuery(aql_find_stations, bindVars={
-            'from_lat': from_lat,
-            'from_lng': from_lng,
-            'to_lat': to_lat,
-            'to_lng': to_lng
-        }, rawResults=True)
+        id_result = list(db.AQLQuery(aql_get_ids, bindVars={
+            'from_id': from_station_id, 
+            'to_id': to_station_id
+        }, rawResults=True))
         
-        stations_data = list(result)
+        if not id_result or not id_result[0].get('start') or not id_result[0].get('end'):
+            return jsonify({"success": False, "error": "Không tìm thấy mã trạm trong hệ thống"}), 404
+            
+        start_node_id = id_result[0]['start']['_id']
+        end_node_id = id_result[0]['end']['_id']
+        start_name = id_result[0]['start']['name']
+        end_name = id_result[0]['end']['name']
+
+        print(f"📍 Bắt đầu tìm đường: {start_name} ({start_node_id}) ===> {end_name} ({end_node_id})")
+
+        # --- BƯỚC 2: Tìm đường bằng TRAVERSAL (Thay vì Shortest Path) ---
+        # Giải thích:
+        # 1..50: Tìm trong phạm vi 1 đến 50 trạm dừng (đủ cho nội thành)
+        # ANY: Đi bất chấp chiều mũi tên (coi như đường 2 chiều)
+        # OPTIONS bfs: true -> Đảm bảo tìm đường ít trạm nhất trước
         
-        if not stations_data:
+        aql_traversal = """
+        FOR v, e, p IN 1..50 ANY @start_node connects
+            OPTIONS {bfs: true, uniqueVertices: 'global'}
+            FILTER v._id == @end_node
+            LIMIT 1
+            RETURN {
+                vertices: p.vertices,
+                edges: p.edges,
+                total_distance: SUM(p.edges[*].distance),
+                total_duration: SUM(p.edges[*].duration),
+                stops: LENGTH(p.edges)
+            }
+        """
+
+        path_result = list(db.AQLQuery(aql_traversal, bindVars={
+            'start_node': start_node_id,
+            'end_node': end_node_id
+        }, rawResults=True))
+
+        # --- BƯỚC 3: Kiểm tra kết quả ---
+        if not path_result:
+            print("❌ Không tìm thấy đường nối giữa 2 trạm này.")
             return jsonify({
-                "success": False,
-                "error": "No stations found"
+                "success": False, 
+                "error": f"Không có tuyến xe kết nối từ {start_name} đến {end_name}"
             }), 404
-        
-        # Find closest start and end stations
-        start_station = min(stations_data, key=lambda x: x['dist_from'])['station']
-        end_station = min(stations_data, key=lambda x: x['dist_to'])['station']
-        
-        print(f"Start station: {start_station['name']}")
-        print(f"End station: {end_station['name']}")
-        
-        # Strategy 1: Try direct route (same route serving both stations)
-        aql_direct = """
-        FOR route IN routes
-            FILTER route.status == "active"
-            LET start_serve = FIRST(
-                FOR v, e IN OUTBOUND route serves
-                    FILTER v.station_id == @start_id
-                    RETURN e
-            )
-            LET end_serve = FIRST(
-                FOR v, e IN OUTBOUND route serves
-                    FILTER v.station_id == @end_id
-                    RETURN e
-            )
-            FILTER start_serve != null AND end_serve != null
-            FILTER start_serve.stop_order < end_serve.stop_order
             
-            LET all_stops = (
-                FOR v, e IN OUTBOUND route serves
-                    FILTER e.stop_order >= start_serve.stop_order
-                    FILTER e.stop_order <= end_serve.stop_order
-                    SORT e.stop_order
-                    RETURN {
-                        station: v,
-                        stop_order: e.stop_order,
-                        arrival_offset: e.arrival_offset
-                    }
-            )
-            
-            RETURN {
-                type: "direct",
-                route: route,
-                start_station: @start_station,
-                end_station: @end_station,
-                stations: all_stops,
-                total_stops: LENGTH(all_stops),
-                duration: end_serve.arrival_offset - start_serve.arrival_offset
-            }
-        """
+        journey = path_result[0]
+        vertices = journey.get('vertices') or []
         
-        direct_result = db.AQLQuery(aql_direct, bindVars={
-            'start_id': start_station['station_id'],
-            'end_id': end_station['station_id'],
-            'start_station': start_station,
-            'end_station': end_station
-        }, rawResults=True)
+        print(f"✅ Đã tìm thấy đường! Qua {len(vertices)} trạm.")
+
+        # --- BƯỚC 4: Lấy thông tin Tuyến xe (Route Info) ---
+        # Phần này giúp hiển thị Badge "Tuyến 01" trên UI
+        routes_found = []
         
-        direct_routes = list(direct_result)
-        
-        if direct_routes:
-            # Sort by duration and return best route
-            best_route = min(direct_routes, key=lambda x: x['duration'])
-            
-            # Calculate walking distances
-            walk_to_start = calculate_distance(
-                from_lat, from_lng,
-                start_station['location']['latitude'],
-                start_station['location']['longitude']
-            )
-            
-            walk_from_end = calculate_distance(
-                to_lat, to_lng,
-                end_station['location']['latitude'],
-                end_station['location']['longitude']
-            )
-            
-            return jsonify({
-                "success": True,
-                "data": [{
-                    "type": "direct",
-                    "route": best_route['route'],
-                    "start_station": start_station,
-                    "end_station": end_station,
-                    "stations": best_route['stations'],
-                    "total_stops": best_route['total_stops'],
-                    "duration": best_route['duration'],
-                    "walk_to_start": round(walk_to_start),
-                    "walk_from_end": round(walk_from_end),
-                    "total_duration": best_route['duration'] + 5 + 5,  # Add 5 mins walk each
-                    "instructions": [
-                        f"Đi bộ {round(walk_to_start)}m đến {start_station['name']}",
-                        f"Bắt xe buýt tuyến {best_route['route']['route_code']} - {best_route['route']['route_name']}",
-                        f"Đi qua {best_route['total_stops']} trạm ({best_route['duration']} phút)",
-                        f"Xuống tại {end_station['name']}",
-                        f"Đi bộ {round(walk_from_end)}m đến đích"
-                    ]
-                }]
-            }), 200
-        
-        # Strategy 2: Try transfer route (need to change buses)
-        aql_transfer = """
-        FOR route1 IN routes
-            FILTER route1.status == "active"
-            LET start_serve = FIRST(
-                FOR v, e IN OUTBOUND route1 serves
-                    FILTER v.station_id == @start_id
-                    RETURN {station: v, edge: e}
-            )
-            FILTER start_serve != null
-            
-            // Find all stations on route1 after start
-            FOR transfer_station, e1 IN OUTBOUND route1 serves
-                FILTER e1.stop_order > start_serve.edge.stop_order
+        # Chỉ tìm tuyến nếu có ít nhất 2 trạm (có cạnh nối)
+        if len(vertices) >= 2:
+            try:
+                # Lấy 2 trạm đầu tiên để xác định tuyến
+                v1 = vertices[0]['_id']
+                v2 = vertices[1]['_id']
                 
-                // Find route2 that serves both transfer station and end station
-                FOR route2 IN routes
-                    FILTER route2.status == "active"
-                    FILTER route2._key != route1._key
-                    
-                    LET transfer_serve = FIRST(
-                        FOR v, e IN OUTBOUND route2 serves
-                            FILTER v.station_id == transfer_station.station_id
-                            RETURN e
-                    )
-                    
-                    LET end_serve = FIRST(
-                        FOR v, e IN OUTBOUND route2 serves
-                            FILTER v.station_id == @end_id
-                            RETURN e
-                    )
-                    
-                    FILTER transfer_serve != null AND end_serve != null
-                    FILTER transfer_serve.stop_order < end_serve.stop_order
-                    
-                    LET leg1_duration = e1.arrival_offset - start_serve.edge.arrival_offset
-                    LET leg2_duration = end_serve.arrival_offset - transfer_serve.arrival_offset
-                    LET total_duration = leg1_duration + leg2_duration + 10 // 10 mins transfer
-                    
-                    LIMIT 5
-                    
-                    RETURN {
-                        type: "transfer",
-                        route1: route1,
-                        route2: route2,
-                        transfer_station: transfer_station,
-                        leg1_duration: leg1_duration,
-                        leg2_duration: leg2_duration,
-                        total_duration: total_duration
+                aql_route = """
+                FOR r IN routes
+                    LET s1 = (FOR s IN ANY r serves FILTER s._id == @v1 LIMIT 1 RETURN 1)
+                    LET s2 = (FOR s IN ANY r serves FILTER s._id == @v2 LIMIT 1 RETURN 1)
+                    FILTER LENGTH(s1) > 0 AND LENGTH(s2) > 0
+                    LIMIT 1
+                    RETURN { 
+                        route_code: r.route_code, 
+                        route_name: r.route_name 
                     }
-        """
-        
-        transfer_result = db.AQLQuery(aql_transfer, bindVars={
-            'start_id': start_station['station_id'],
-            'end_id': end_station['station_id']
-        }, rawResults=True)
-        
-        transfer_routes = list(transfer_result)
-        
-        if transfer_routes:
-            # Sort by total duration
-            best_transfer = min(transfer_routes, key=lambda x: x['total_duration'])
-            
-            walk_to_start = calculate_distance(
-                from_lat, from_lng,
-                start_station['location']['latitude'],
-                start_station['location']['longitude']
-            )
-            
-            walk_from_end = calculate_distance(
-                to_lat, to_lng,
-                end_station['location']['latitude'],
-                end_station['location']['longitude']
-            )
-            
-            return jsonify({
-                "success": True,
-                "data": [{
-                    "type": "transfer",
-                    "route1": best_transfer['route1'],
-                    "route2": best_transfer['route2'],
-                    "start_station": start_station,
-                    "transfer_station": best_transfer['transfer_station'],
-                    "end_station": end_station,
-                    "leg1_duration": best_transfer['leg1_duration'],
-                    "leg2_duration": best_transfer['leg2_duration'],
-                    "walk_to_start": round(walk_to_start),
-                    "walk_from_end": round(walk_from_end),
-                    "total_duration": best_transfer['total_duration'] + 10,
-                    "instructions": [
-                        f"Đi bộ {round(walk_to_start)}m đến {start_station['name']}",
-                        f"Bắt xe buýt tuyến {best_transfer['route1']['route_code']} ({best_transfer['leg1_duration']} phút)",
-                        f"Xuống tại {best_transfer['transfer_station']['name']} để chuyển tuyến",
-                        f"Bắt xe buýt tuyến {best_transfer['route2']['route_code']} ({best_transfer['leg2_duration']} phút)",
-                        f"Xuống tại {end_station['name']}",
-                        f"Đi bộ {round(walk_from_end)}m đến đích"
-                    ]
-                }]
-            }), 200
-        
-        # No route found
+                """
+                route_res = list(db.AQLQuery(aql_route, bindVars={'v1': v1, 'v2': v2}, rawResults=True))
+                if route_res:
+                    routes_found.append({"route": route_res[0]})
+            except Exception as e:
+                print(f"⚠️ Không xác định được tên tuyến: {e}")
+
+        # Chuẩn hóa dữ liệu trả về
+        formatted_result = [{
+            "type": "graph_path",
+            "vertices": vertices,
+            "edges": journey.get('edges') or [],
+            "total_distance": journey.get('total_distance') or 0,
+            "total_duration": journey.get('total_duration') or 0,
+            "stops": len(vertices) - 1, # Số trạm dừng = Tổng đỉnh - 1 (đỉnh đầu)
+            "routes": routes_found
+        }]
+
         return jsonify({
-            "success": False,
-            "error": f"Không tìm thấy lộ trình từ {start_station['name']} đến {end_station['name']}. Vui lòng thử địa điểm khác hoặc kiểm tra dữ liệu tuyến xe."
-        }), 404
-        
+            "success": True,
+            "data": formatted_result
+        }), 200
+
     except Exception as e:
-        print(f"Error in find_shortest_path: {str(e)}")
+        print(f"❌ Lỗi Server: {str(e)}")
         import traceback
         traceback.print_exc()
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 @journey_bp.route('/routes-between', methods=['POST'])
 @jwt_required()
 def find_routes_between_stations():

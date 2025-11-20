@@ -18,7 +18,7 @@ def get_all_stations():
         
         # Pagination parameters
         page = int(request.args.get('page', 1))
-        limit = int(request.args.get('limit', 20))
+        limit = int(request.args.get('limit', 100))
         offset = (page - 1) * limit
         
         # Filters

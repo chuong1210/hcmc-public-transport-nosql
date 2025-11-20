@@ -13,20 +13,24 @@ def get_db_connection():
         password=os.getenv('ARANGO_PASSWORD')
     )
     return conn[os.getenv('ARANGO_DATABASE')]
-
 def clear_all_data(db):
-    """Clear all existing data"""
+    """Clear all existing data using truncate"""
     print("🗑️  Clearing existing data...")
     
     collections = ['stations', 'routes', 'vehicles', 'users', 'schedules']
     edge_collections = ['connects', 'serves', 'operates_on']
     
-    for col in collections + edge_collections:
-        try:
-            db.AQLQuery(f"FOR doc IN {col} REMOVE doc IN {col}")
-            print(f"   ✅ Cleared {col}")
-        except:
-            pass
+    # Xóa dữ liệu Edge trước
+    for col in edge_collections:
+        if db.hasCollection(col):
+            db[col].truncate()
+            print(f"   ✅ Truncated {col}")
+
+    # Xóa dữ liệu Document sau
+    for col in collections:
+        if db.hasCollection(col):
+            db[col].truncate()
+            print(f"   ✅ Truncated {col}")
 
 def insert_stations(db):
     """Insert 30+ stations across Ho Chi Minh City"""
@@ -1455,7 +1459,82 @@ def insert_schedules(db):
             print(f"   ❌ Error: {e}")
     
     print(f"   📊 Total: {len(schedules)} schedules inserted")
+import requests
+import json
 
+# ... (giữ nguyên các phần import khác)
+
+def create_graph_definition(db):
+    """
+    Tạo Named Graph bằng cách gọi trực tiếp API ArangoDB (Bypass hạn chế của pyArango)
+    """
+    print("\n🕸️  Defining Graph 'bus_network'...")
+    
+    graph_name = "bus_network"
+    
+    # Lấy thông tin kết nối từ biến môi trường hoặc từ đối tượng db
+    base_url = os.getenv('ARANGO_HOST')
+    db_name = os.getenv('ARANGO_DATABASE')
+    username = os.getenv('ARANGO_USERNAME')
+    password = os.getenv('ARANGO_PASSWORD')
+    
+    # URL API để quản lý Graph
+    # Lưu ý: URL phải có định dạng /_db/{dbname}/_api/gharial
+    api_url = f"{base_url}/_db/{db_name}/_api/gharial"
+    
+    # 1. Xóa Graph cũ nếu tồn tại (để cập nhật mới)
+    try:
+        requests.delete(
+            f"{api_url}/{graph_name}", 
+            auth=(username, password)
+        )
+        print(f"   🗑️  Deleted old graph '{graph_name}' (if existed)")
+    except:
+        pass
+
+    # 2. Định nghĩa Payload chuẩn của ArangoDB
+    # Lưu ý: API yêu cầu key là "from" và "to", KHÔNG PHẢI "fromCollections"
+    payload = {
+        "name": graph_name,
+        "edgeDefinitions": [
+            {
+                "collection": "connects",
+                "from": ["stations"],
+                "to": ["stations"]
+            },
+            {
+                "collection": "serves",
+                "from": ["routes"],
+                "to": ["stations"]
+            },
+            {
+                "collection": "operates_on",
+                "from": ["vehicles"],
+                "to": ["routes"]
+            }
+        ],
+        "orphanCollections": ["users", "schedules"]
+    }
+
+    # 3. Gọi API tạo Graph
+    response = requests.post(
+        api_url, 
+        auth=(username, password),
+        json=payload
+    )
+
+    if response.status_code in [201, 202]:
+        print(f"   ✅ Graph '{graph_name}' created successfully!")
+    else:
+        # Nếu lỗi là do graph đã tồn tại (conflict) thì bỏ qua
+        if "duplicate name" in response.text:
+             print(f"   ⚠️ Graph '{graph_name}' already exists.")
+        else:
+            print(f"   ❌ Error creating graph: {response.status_code} - {response.text}")
+
+# Nhớ gọi hàm này trong main() sau khi insert xong dữ liệu
+# insert_schedules(db)
+# create_graph_definition(db)  <-- GỌI Ở ĐÂY
 def main():
     """Main execution"""
     print("=" * 60)
@@ -1478,7 +1557,8 @@ def main():
         insert_serves(db)
         insert_operates_on(db)
         insert_schedules(db)
-        
+        create_graph_definition(db)  
+
         print("\n" + "=" * 60)
         print("✅ DATA INSERTION COMPLETED SUCCESSFULLY!")
         print("=" * 60)
